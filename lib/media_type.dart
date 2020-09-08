@@ -94,6 +94,10 @@ enum MediaSubtype {
   multipartRelated,
   multipartDigest,
 
+  /// Security multiparts https://tools.ietf.org/html/rfc1847
+  multipartSigned,
+  multipartEncrypted,
+
   /// Report https://tools.ietf.org/html/rfc6522
   multipartReport,
   fontOtf,
@@ -199,6 +203,8 @@ class MediaType {
     'multipart/partial': MediaSubtype.multipartPartial,
     'multipart/digest': MediaSubtype.multipartDigest,
     'multipart/report': MediaSubtype.multipartReport,
+    'multipart/signed': MediaSubtype.multipartSigned,
+    'multipart/encrypted': MediaSubtype.multipartEncrypted,
     'font/otf': MediaSubtype.fontOtf,
     'font/ttf': MediaSubtype.fontTtf,
     'font/woff': MediaSubtype.fontWoff,

@@ -626,7 +626,7 @@ class MimeMessage extends MimePart {
         return part;
       }
     }
-    if (fetchId == '1') {
+    if (fetchId == '1' && parts == null) {
       return this;
     }
     final idParts = fetchId.split('.').map<int>((part) => int.parse(part));

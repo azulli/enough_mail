@@ -20,25 +20,31 @@ class Uint8ListReader {
   }
 
   int findLineBreak() {
+    var charIndex = _data.indexOf(13);
+    if (charIndex < _data.lengthInBytes - 1 && _data[charIndex + 1] == 10)
+      return charIndex + 1;
+    /*
     var data = _data;
     for (var charIndex = 0; charIndex < data.length - 1; charIndex++) {
       if (data[charIndex] == 13 && data[charIndex + 1] == 10) {
         // ok found CR + LF sequence:
         return charIndex + 1;
       }
-    }
+    } */
 
     return null;
   }
 
   int findLastLineBreak() {
-    var data = _data;
+    var charIndex = _data.lastIndexOf(10);
+    if (_data[charIndex - 1] == 13) return charIndex;
+    /* var data = _data;
     for (var charIndex = data.length; --charIndex > 1;) {
       if (data[charIndex] == 10 && data[charIndex - 1] == 13) {
         // ok found CR + LF sequence:
         return charIndex;
       }
-    }
+    } */
     return null;
   }
 
