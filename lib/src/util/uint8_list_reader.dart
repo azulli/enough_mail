@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:enough_mail/src/util/ascii_runes.dart';
@@ -5,13 +6,17 @@ import 'package:enough_mail/src/util/ascii_runes.dart';
 /// Combines several Uin8Lists to read from them sequentially
 class Uint8ListReader {
   Uint8List _data = Uint8List(0);
+  final BytesBuilder _bb = BytesBuilder();
 
   void add(Uint8List list) {
     //idea: consider BytesBuilder
     if (_data.isEmpty) {
       _data = list;
     } else {
-      _data = Uint8List.fromList(_data + list);
+      // _data = Uint8List.fromList(_data + list);
+      _bb.add(_data);
+      _bb.add(list);
+      _data = _bb.takeBytes();
     }
   }
 
@@ -21,30 +26,17 @@ class Uint8ListReader {
 
   int findLineBreak() {
     var charIndex = _data.indexOf(13);
-    if (charIndex < _data.lengthInBytes - 1 && _data[charIndex + 1] == 10)
+    if (charIndex < _data.lengthInBytes - 1 && _data[charIndex + 1] == 10) {
       return charIndex + 1;
-    /*
-    var data = _data;
-    for (var charIndex = 0; charIndex < data.length - 1; charIndex++) {
-      if (data[charIndex] == 13 && data[charIndex + 1] == 10) {
-        // ok found CR + LF sequence:
-        return charIndex + 1;
-      }
-    } */
-
+    }
     return null;
   }
 
   int findLastLineBreak() {
     var charIndex = _data.lastIndexOf(10);
-    if (_data[charIndex - 1] == 13) return charIndex;
-    /* var data = _data;
-    for (var charIndex = data.length; --charIndex > 1;) {
-      if (data[charIndex] == 10 && data[charIndex - 1] == 13) {
-        // ok found CR + LF sequence:
-        return charIndex;
-      }
-    } */
+    if (_data[charIndex - 1] == 13) {
+      return charIndex;
+    }
     return null;
   }
 
@@ -79,13 +71,14 @@ class Uint8ListReader {
   }
 
   int findLastCrLfDotCrLfSequence() {
-    var data = _data;
-    for (var charIndex = data.length; --charIndex > 4;) {
-      if (data[charIndex] == 10 &&
-          data[charIndex - 1] == 13 &&
-          data[charIndex - 2] == AsciiRunes.runeDot &&
-          data[charIndex - 3] == 10 &&
-          data[charIndex - 4] == 13) {
+    var start = _data.length;
+    while (start > 4) {
+      var charIndex = _data.lastIndexOf(10, start);
+      if (_data[charIndex] == 10 &&
+          _data[charIndex - 1] == 13 &&
+          _data[charIndex - 2] == AsciiRunes.runeDot &&
+          _data[charIndex - 3] == 10 &&
+          _data[charIndex - 4] == 13) {
         // ok found CRLF.CRLF sequence:
         return charIndex;
       }

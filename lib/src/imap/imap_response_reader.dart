@@ -14,14 +14,18 @@ class ImapResponseReader {
   ImapResponseReader([this._onImapResponse]);
 
   void onData(Uint8List data) {
+    // print('---- ONDATA BEGIN');
     _rawReader.add(data);
     // var text = String.fromCharCodes(data).replaceAll('\r\n', '<CRLF>\n');
     // print('onData: $text');
     //  print("onData: hasLineBreak=${_rawReader.hasLineBreak()} currentResponse != null: ${(_currentResponse != null)}");
     if (_currentResponse != null) {
+      // print('---- ONDATA RESPONSE CONTINUE');
+      // *** qui fa il ciclo di caricamento della risposta ***
       _checkResponse(_currentResponse, _currentLine);
     }
     if (_currentResponse == null) {
+      // print('---- ONDATA RESPONSE NEW');
       // there is currently no response awaiting its finalization
       var text = _rawReader.readLine();
       while (text != null) {
@@ -29,6 +33,7 @@ class ImapResponseReader {
         var line = ImapResponseLine(text);
         response.add(line);
         if (line.isWithLiteral) {
+          // print('---- ONDATA $text');
           _currentLine = line;
           _currentResponse = response;
           _checkResponse(response, line);
@@ -40,19 +45,25 @@ class ImapResponseReader {
           break;
         }
         text = _rawReader.readLine();
+        // print('---- LOOP READLINE');
       }
     }
+    // print('---- ONDATA END');
   }
 
   void _checkResponse(ImapResponse response, ImapResponseLine line) {
     if (line.isWithLiteral) {
       if (_rawReader.isAvailable(line.literal)) {
+        // print('---- {LITERAL} READS AVAILABLE RAW ${line.literal}');
         var rawLine = ImapResponseLine.raw(_rawReader.readBytes(line.literal));
         response.add(rawLine);
         _currentLine = rawLine;
         _checkResponse(response, rawLine);
+      } else {
+        // print('---- {LITERAL} NO AVAILABLE FOR READING');
       }
     } else {
+      // print('---- READS TEXT');
       // current line has no literal
       var text = _rawReader.readLine();
       if (text != null) {
@@ -62,17 +73,20 @@ class ImapResponseReader {
         // in this case the information should be added on the previous line
         if (textLine.isWithLiteral && textLine.line.isEmpty) {
           line.literal = textLine.literal;
-          line.rawLine += text;
+          //line.rawLine += text;
+          line.append(text);
         } else {
           if (textLine.line.isNotEmpty) {
             response.add(textLine);
           }
           if (!textLine.isWithLiteral) {
             // this is the last line of this server response:
+            //print('---- ONDATA IMAP RESPONSE COMPLETE');
             _onImapResponse(response);
             _currentResponse = null;
             _currentLine = null;
           } else {
+            // print('---- !RECURSE! ONDATA');
             _currentLine = textLine;
             _checkResponse(response, textLine);
           }
