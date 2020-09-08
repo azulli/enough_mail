@@ -31,6 +31,7 @@ class MockImapServer {
   List<ServerMailbox> mailboxes = <ServerMailbox>[];
   List<ServerMailbox> mailboxesSubscribed = <ServerMailbox>[];
   List<String> fetchResponses = <String>[];
+  String fetchResponseFile = '';
   List<String> getMetaDataResponses = <String>[];
   List<String> setMetaDataResponses = <String>[];
   List<String> storeResponses = <String>[];
@@ -101,6 +102,8 @@ class MockImapServer {
       function = respondClose;
     } else if (request.startsWith('LOGOUT')) {
       function = respondLogout;
+    } else if (request.startsWith('FETCH ') && request.indexOf('999') > 0) {
+      function = respondFetchFromFile;
     } else if (request.startsWith('FETCH ') ||
         request.startsWith('UID FETCH ')) {
       function = respondFetch;
@@ -336,6 +339,30 @@ class MockImapServer {
         isLastMessageEndingWithLiteral = fetch[fetch.length - 1] == '}';
       }
     }
+    var prefix = line.startsWith('UID') ? ' UID' : '';
+    return 'OK$prefix FETCH completed (0.001 + 0.000 secs).';
+  }
+
+  String respondFetchFromFile(String line) {
+    var box = _selectedMailbox;
+    if ((state != ServerState.authenticated && state != ServerState.selected) ||
+        (box == null)) {
+      return 'NO not authenticated or no mailbox selected';
+    }
+    var isLastMessageEndingWithLiteral = false;
+    var fileOctets = File(fetchResponseFile).lengthSync();
+    writeUntagged(
+        '999 FETCH (BODY[] {$fileOctets}$_CRLF'); // Apertura della fetch
+    isLastMessageEndingWithLiteral = true;
+    for (var fetch in File(fetchResponseFile).readAsLinesSync()) {
+      if (isLastMessageEndingWithLiteral) {
+        write(fetch + _CRLF);
+      } else {
+        writeUntagged(fetch + _CRLF);
+        isLastMessageEndingWithLiteral = fetch[fetch.length - 1] == '}';
+      }
+    }
+    write(')$_CRLF'); // Chiusura della fetch
     var prefix = line.startsWith('UID') ? ' UID' : '';
     return 'OK$prefix FETCH completed (0.001 + 0.000 secs).';
   }

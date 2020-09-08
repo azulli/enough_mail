@@ -1265,6 +1265,19 @@ void main() {
     //expect(doneResponse.status, ResponseStatus.OK);
   });
 
+  /* test('ImapClient fetch BODY[] File', () async {
+    _log('');
+    if (mockServer != null) {
+      mockServer.fetchResponses.clear();
+      mockServer.fetchResponseFile =
+          '/home/goldenboy/development/AndroidstudioProjects/flutpec-documents/samples/Prova allegato 10MB.eml';
+      var fetchResponse =
+          await client.fetchMessages(MessageSequence.fromId(999), 'BODY[]');
+      expect(fetchResponse.status, ResponseStatus.OK,
+          reason: 'support for FETCH BODY[] File expected');
+    }
+  }, timeout: Timeout(Duration(minutes: 1))); */
+
   test('ImapClient close', () async {
     _log('');
     var closeResponse = await client.closeMailbox();

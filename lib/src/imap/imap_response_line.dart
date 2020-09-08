@@ -3,43 +3,50 @@ import 'dart:typed_data';
 import 'parser_helper.dart';
 
 class ImapResponseLine {
-  String rawLine;
+  // String rawLine;
   String line;
   int literal;
   bool get isWithLiteral => (literal != null && literal > 0);
   Uint8List rawData;
 
+  String get rawLine => String.fromCharCodes(rawData);
+
   ImapResponseLine.raw(this.rawData) {
     line = String.fromCharCodes(rawData);
-    rawLine = line;
+    // rawLine = line;
   }
 
-  ImapResponseLine(this.rawLine) {
+  ImapResponseLine(String /*this.*/ rawLine) {
     // Example for lines using the literal extension / rfc7888:
     //  C: A001 LOGIN {11+}
     //  C: FRED FOOBAR {7+}
     //  C: fat man
     //  S: A001 OK LOGIN completed
-    var text = rawLine;
-    line = text;
-    if (text.length > 3 && text[text.length - 1] == '}') {
-      var openIndex = text.lastIndexOf('{', text.length - 2);
-      var endIndex = text.length - 1;
-      if (text[endIndex - 1] == '+') {
+    rawData = Uint8List.fromList(rawLine.codeUnits);
+    if (rawLine.length > 3 && rawLine[rawLine.length - 1] == '}') {
+      var openIndex = rawLine.lastIndexOf('{', rawLine.length - 2);
+      var endIndex = rawLine.length - 1;
+      if (rawLine[endIndex - 1] == '+') {
         endIndex--;
       }
-      literal = ParserHelper.parseIntByIndex(text, openIndex + 1, endIndex);
+      literal = ParserHelper.parseIntByIndex(rawLine, openIndex + 1, endIndex);
       if (literal != null) {
-        if (openIndex > 0 && text[openIndex - 1] == ' ') {
+        if (openIndex > 0 && rawLine[openIndex - 1] == ' ') {
           openIndex--;
         }
-        line = text.substring(0, openIndex);
+        line = rawLine.substring(0, openIndex);
       }
+    } else {
+      line = rawLine;
     }
+  }
+
+  void append(String text) {
+    rawData += Uint8List.fromList(text.codeUnits);
   }
 
   @override
   String toString() {
-    return rawLine;
+    return String.fromCharCodes(rawData); //rawLine;
   }
 }
