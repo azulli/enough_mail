@@ -1,3 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:enough_mail/src/util/ascii_runes.dart';
+import 'package:enough_mail/src/util/raw_data_helper.dart';
 import 'package:enough_mail/src/util/word.dart';
 
 /// Abstracts a word such as a template name
@@ -69,6 +75,23 @@ class ParserHelper {
     return Word(details.substring(startIndex, endIndex), startIndex);
   }
 
+  static HeaderParseResult parseHeaderData(Uint8List data) {
+    var pos = RawDataHelper.findSequence(
+        data,
+        Uint8List.fromList([
+          AsciiRunes.runeCarriageReturn,
+          AsciiRunes.runeLineFeed,
+          AsciiRunes.runeCarriageReturn,
+          AsciiRunes.runeLineFeed
+        ]));
+    var headerLines = pos > -1
+        ? String.fromCharCodes(Uint8List.sublistView(data, 0, pos))
+            .split('\r\n')
+        : <String>[];
+    return parseHeaderLines(headerLines);
+  }
+
+  @deprecated
   static HeaderParseResult parseHeader(String header) {
     var headerLines = header.split('\r\n');
     return parseHeaderLines(headerLines);

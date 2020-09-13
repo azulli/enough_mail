@@ -11,7 +11,7 @@ import 'base64_mail_codec.dart';
 /// Encodes and decodes base-64 and quoted printable encoded texts
 /// Compare https://tools.ietf.org/html/rfc2045#page-19
 /// and https://tools.ietf.org/html/rfc2045#page-23 for details
-abstract class MailCodec {
+abstract class MailCodec with MailCodecData {
   /// Typical maximum length of a single text line
   static const String _encodingEndSequence = '?=';
   static final RegExp _encodingExpression = RegExp(
@@ -251,5 +251,25 @@ abstract class MailCodec {
       buffer.write(text.substring(currentLineStartIndex));
     }
     return buffer.toString();
+  }
+}
+
+abstract class MailCodecData {
+  static String decodeAnyTextData(
+      Uint8List codePoints, String transferEncoding, String characterEncoding) {
+    transferEncoding ??= 'none';
+    characterEncoding ??= 'utf8';
+    var codec = MailCodec._codecsByName[characterEncoding.toLowerCase()];
+    var decoder = MailCodec._textDecodersByName[transferEncoding.toLowerCase()];
+    if (decoder == null) {
+      print('Error: no decoder found for [$transferEncoding].');
+      return String.fromCharCodes(codePoints);
+    }
+    if (codec == null) {
+      print('Error: no encoding found for [$characterEncoding].');
+      return String.fromCharCodes(codePoints);
+    }
+    // TODO make a version that accepts a Uint8List
+    return decoder(String.fromCharCodes(codePoints), codec);
   }
 }

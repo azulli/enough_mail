@@ -1,7 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:enough_mail/codecs/mail_codec.dart';
 import 'package:enough_mail/codecs/date_codec.dart';
+import 'package:enough_mail/codecs/mail_codec.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:enough_mail/mail_address.dart';
 import 'package:enough_mail/mail_conventions.dart';
@@ -9,6 +10,7 @@ import 'package:enough_mail/media_type.dart';
 import 'package:enough_mail/src/imap/parser_helper.dart';
 import 'package:enough_mail/src/util/ascii_runes.dart';
 import 'package:enough_mail/src/util/mail_address_parser.dart';
+import 'package:enough_mail/src/util/raw_data_helper.dart';
 
 /// A MIME part
 /// In a simple case a MIME message only has one MIME part.
@@ -21,7 +23,8 @@ class MimePart {
   String get headerRaw => _getHeaderRaw();
   set headerRaw(String headerRaw) => _headerRaw = headerRaw;
 
-  String bodyRaw;
+  Uint8List bodyRaw;
+
   String text;
   List<MimePart> parts;
   ContentTypeHeader _contentTypeHeader;
@@ -30,6 +33,9 @@ class MimePart {
 
   /// Used during message construction / rendering: boundary for multipart messages
   String multiPartBoundary;
+
+  bool get isEmpty =>
+      (bodyRaw == null || bodyRaw.isEmpty) || (text == null || text.isEmpty);
 
   /// Retrieves the raw value of the first matching header.
   ///
@@ -173,7 +179,7 @@ class MimePart {
 
   /// Decodes the text of this part.
   String decodeContentText() {
-    text ??= bodyRaw;
+    text ??= String.fromCharCodes(bodyRaw);
     if (text == null) {
       return null;
     }
@@ -190,13 +196,15 @@ class MimePart {
 
   /// Decodes the binary data of this part.
   Uint8List decodeContentBinary() {
-    text ??= bodyRaw;
+    /* text ??= String.fromCharCodes(bodyRaw);
     if (text == null) {
       return null;
-    }
+    } */
+    if (bodyRaw == null || bodyRaw.isEmpty) return null;
     var transferEncoding =
         getHeaderValue('content-transfer-encoding')?.toLowerCase() ?? 'none';
-    return MailCodec.decodeBinary(text, transferEncoding);
+    return MailCodec.decodeBinary(
+        String.fromCharCodes(bodyRaw) /*text*/, transferEncoding);
   }
 
   /// Checks if this MIME part is textual.
@@ -277,38 +285,79 @@ class MimePart {
 
   /// Parses this and all children MIME parts.
   void parse() {
-    var body = bodyRaw;
+    //print('→ parse');
+    // Don't reparse.
+    if (bodyRaw == null || bodyRaw.isEmpty || _isParsed) return;
+    /* var body = bodyRaw;
     if (body == null) {
       //print('Unable to parse message without body');
       return;
-    }
+    } */
     //print('parse \n[$body]');
     if (headers == null) {
-      if (body.startsWith('\r\n')) {
+      //**Uint8List body;
+      if (bodyRaw[0] == AsciiRunes.runeCarriageReturn &&
+          bodyRaw[1] == AsciiRunes.runeLineFeed) {
+        //**body = Uint8List.sublistView(bodyRaw, 2);
+        //**text = String.fromCharCodes(body);
+        bodyRaw = Uint8List.fromList(Uint8List.sublistView(bodyRaw, 2));
+        text = String.fromCharCodes(bodyRaw);
+        headers = <Header>[];
+      } else {
+        /* if (body.startsWith('\r\n')) {
         // this part has no header
         body = body.substring(2);
         text = body;
         headers = <Header>[];
-      } else {
-        var headerParseResult = ParserHelper.parseHeader(body);
+      } else { */
+        // FIXME: Decodes all body
+        var headerParseResult = ParserHelper.parseHeaderData(bodyRaw);
+        //ParserHelper.parseHeader(body);
         if (headerParseResult.bodyStartIndex != null) {
-          if (headerParseResult.bodyStartIndex >= body.length) {
-            body = '';
+          if (headerParseResult.bodyStartIndex >= bodyRaw.length) {
+            //**body = null;
+            bodyRaw = null; // Dovrebbe fixare il body quando scarica 0 byte
+            //Uint8List(0);
           } else {
-            body = body.substring(headerParseResult.bodyStartIndex);
+            //**body = Uint8List.sublistView(
+            //**    bodyRaw, headerParseResult.bodyStartIndex);
+            bodyRaw = Uint8List.fromList(Uint8List.sublistView(
+                bodyRaw, headerParseResult.bodyStartIndex));
+            // body = body.substring(headerParseResult.bodyStartIndex);
           }
         }
+        /* ** else {
+          body = bodyRaw;
+        } ** */
         headers = headerParseResult.headers
             .map((h) => Header(h.name, h.value))
             .toList();
-        text = body;
+        //text = body == null ? '' : String.fromCharCodes(body);
+        text = String.fromCharCodes(bodyRaw);
       }
+    } else {
+      text = String.fromCharCodes(bodyRaw); // QUE?
     }
     _isParsed = true;
+    //print('Headers\n$headers');
+    //stdout.write('PRESS <ENTER> ');
+    //stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
     var contentType = getHeaderContentType();
     if (contentType?.boundary != null) {
       var splitBoundary = '--' + contentType.boundary + '\r\n';
-      var childParts = body.split(splitBoundary);
+      final boundaryChars = utf8.encode(splitBoundary);
+      var pos = RawDataHelper.findBoundaries(bodyRaw, boundaryChars, 0);
+      //print('boundaries ad $pos');
+      //stdout.write('PRESS <ENTER> ');
+      //stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
+      for (var y = 0; y < pos.length - 1; y++) {
+        var raw = Uint8List.sublistView(
+            bodyRaw, pos[y] + splitBoundary.length, pos[y + 1]);
+        var part = MimePart()..bodyRaw = raw;
+        part.parse();
+        addPart(part);
+      }
+      /* var childParts = body.split(splitBoundary);
       if (!body.startsWith(splitBoundary)) {
         // mime-readers can ignore the preamble:
         childParts.removeAt(0);
@@ -327,7 +376,7 @@ class MimePart {
           part.parse();
           addPart(part);
         }
-      }
+      } */
     }
   }
 
@@ -358,7 +407,7 @@ class MimePart {
       buffer.write('--');
       buffer.write('\r\n');
     } else if (bodyRaw != null) {
-      buffer.write(bodyRaw);
+      buffer.write(String.fromCharCodes(bodyRaw));
       buffer.write('\r\n');
     }
   }
@@ -440,7 +489,8 @@ class MimeMessage extends MimePart {
   set isMdnSent(bool value) => setFlag(MessageFlags.keywordMdnSent, value);
 
   /// Checks if this message is downloaded
-  bool get isDownloaded => (bodyRaw != null);
+  bool get isDownloaded =>
+      (bodyRaw != null && bodyRaw.isNotEmpty) || _individualParts != null;
 
   String get fromEmail => _getFromEmail();
 
@@ -731,7 +781,7 @@ class MimeMessage extends MimePart {
       buffer.write('\n');
     }
     if (bodyRaw != null) {
-      buffer.write(bodyRaw);
+      buffer.write(String.fromCharCodes(bodyRaw));
     }
     return buffer.toString();
   }
@@ -808,22 +858,22 @@ class Header {
   }
 
   void render(StringBuffer buffer) {
-    var length = name.length + ': '.length + value.length;
+    var length = name.length + ': '.length + (value?.length ?? 0);
     buffer.write(name);
     buffer.write(': ');
     if (length < MailConventions.textLineMaxLength) {
-      buffer.write(value);
+      buffer.write(value ?? '');
       buffer.write('\r\n');
     } else {
       var currentLineLength = name.length + ': '.length;
       length -= name.length + ': '.length;
-      var runes = value.runes;
+      var runes = value?.runes;
       var startIndex = 0;
       while (length > 0) {
         var chunkLength = MailConventions.textLineMaxLength - currentLineLength;
-        if (startIndex + chunkLength >= value.length) {
+        if (startIndex + chunkLength >= value?.length ?? 0) {
           // write reminder:
-          buffer.write(value.substring(startIndex).trim());
+          buffer.write(value?.substring(startIndex)?.trim() ?? '');
           buffer.write('\r\n');
           break;
         }
@@ -940,6 +990,16 @@ class BodyPart {
 
   String _getFetchId([String tail]) {
     if (_parent != null) {
+      // A "multipart/mixed" body part, single child of a rfc822 message,
+      // should not contribute to the body part id generation, instead
+      // should be addressed directly with a ".TEXT" suffix after the
+      // message part id. When accounting this, the resulting fetchId can be
+      // used to correctly load the required mime part of the message.
+      /* if ((_parent.contentType.mediaType.sub == MediaSubtype.messageRfc822 &&
+              _parent.parts.length == 1) &&
+          contentType.mediaType.isMultipart) {
+        return _parent._getFetchId(tail ?? 'TEXT');
+      } else { */
       var index = _parent.parts.indexOf(this);
       var fetchIdPart = (index + 1).toString();
       if (tail == null) {
@@ -947,6 +1007,7 @@ class BodyPart {
       } else {
         tail = fetchIdPart + '.' + tail;
       }
+      // }
       return _parent._getFetchId(tail);
     } else {
       return tail;

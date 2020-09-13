@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:enough_mail/src/util/ascii_runes.dart';
@@ -7,6 +8,12 @@ import 'package:enough_mail/src/util/ascii_runes.dart';
 class Uint8ListReader {
   Uint8List _data = Uint8List(0);
   final BytesBuilder _bb = BytesBuilder();
+
+  final _bufferSize = 1024 * 64; // 64K buffer
+
+  /// true se sono presenti più dati della "capienza" del buffer
+  bool get isBufferFull => _data.length >= _bufferSize;
+  int get size => _data.length;
 
   void add(Uint8List list) {
     //idea: consider BytesBuilder
@@ -26,7 +33,7 @@ class Uint8ListReader {
 
   int findLineBreak() {
     var charIndex = _data.indexOf(13);
-    if (charIndex < _data.lengthInBytes - 1 && _data[charIndex + 1] == 10) {
+    if (charIndex < _data.length - 1 && _data[charIndex + 1] == 10) {
       return charIndex + 1;
     }
     return null;
@@ -107,6 +114,13 @@ class Uint8ListReader {
     }
     var result = _data.sublist(0, length);
     _data = _data.sublist(length);
+    return result;
+  }
+
+  /// Legge tutto il buffer fino ad un massimo di [_bufferSize] elementi
+  Uint8List readBufferedBytes() {
+    var result = _data.sublist(0, min(_bufferSize, _data.length));
+    _data = _data.sublist(_bufferSize);
     return result;
   }
 

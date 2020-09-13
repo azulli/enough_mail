@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:enough_mail/enough_mail.dart';
 import 'package:enough_mail/pop/pop_response.dart';
 import 'package:enough_mail/src/pop/pop_response_parser.dart';
@@ -18,7 +21,7 @@ class PopRetrieveParser extends PopResponseParser<MimeMessage> {
         }
         buffer..write(line)..write('\r\n');
       }
-      message.bodyRaw = buffer.toString();
+      message.bodyRaw = Uint8List.fromList(utf8.encode(buffer.toString()));
       message.parse();
       response.result = message;
     }

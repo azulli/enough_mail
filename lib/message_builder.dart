@@ -172,7 +172,8 @@ class PartBuilder {
         MessageBuilder.getContentTransferEncodingName(encoding);
     child.setContentType(mediaType);
     child.contentType.setParameter('name', '"${disposition.filename}"');
-    child._part.bodyRaw = MailCodec.base64.encodeData(data);
+    child._part.bodyRaw =
+        Uint8List.fromList(utf8.encode(MailCodec.base64.encodeData(data)));
     return child;
   }
 
@@ -201,7 +202,8 @@ class PartBuilder {
     child.contentTransferEncoding =
         MessageBuilder.getContentTransferEncodingName(encoding);
     child.setContentType(mediaType);
-    child._part.bodyRaw = MailCodec.base64.encodeData(data);
+    child._part.bodyRaw =
+        Uint8List.fromList(utf8.encode(MailCodec.base64.encodeData(data)));
     return child;
   }
 
@@ -254,7 +256,8 @@ class PartBuilder {
     }
     // build body:
     if (text != null && (_part.parts?.isEmpty ?? true)) {
-      _part.bodyRaw = MessageBuilder.encodeText(text, encoding, characterSet);
+      _part.bodyRaw = Uint8List.fromList(
+          utf8.encode(MessageBuilder.encodeText(text, encoding, characterSet)));
       if (contentType == null) {
         setHeader(MailConventions.headerContentType,
             'text/plain; charset="${MessageBuilder.getCharacterSetName(characterSet)}"');

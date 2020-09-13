@@ -1,12 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:enough_mail/codecs/date_codec.dart';
 import 'package:enough_mail/codecs/mail_codec.dart';
 import 'package:enough_mail/imap/message_sequence.dart';
+import 'package:enough_mail/imap/response.dart';
 import 'package:enough_mail/mail_address.dart';
 import 'package:enough_mail/media_type.dart';
 import 'package:enough_mail/mime_message.dart';
 import 'package:enough_mail/src/imap/parser_helper.dart';
 import 'package:enough_mail/src/imap/response_parser.dart';
-import 'package:enough_mail/imap/response.dart';
 
 import 'imap_response.dart';
 
@@ -162,7 +164,8 @@ class FetchParser extends ResponseParser<FetchImapResult> {
       var startIndex = 'BODY['.length;
       var endIndex = bodyPartDefinition.length - 1;
       final fetchId = bodyPartDefinition.substring(startIndex, endIndex);
-      var part = MimePart()..bodyRaw = imapValue.value;
+      var part = MimePart()
+        ..bodyRaw = Uint8List.fromList(imapValue.value.codeUnits); /* AZ */
       message.setPart(fetchId, part);
     }
   }
@@ -183,7 +186,7 @@ class FetchParser extends ResponseParser<FetchImapResult> {
       }
       var bodyText =
           bodyValue.value.substring(headerParseResult.bodyStartIndex);
-      message.bodyRaw = bodyText;
+      message.bodyRaw = Uint8List.fromList(bodyText.codeUnits); /* AZ */
       //print("Parsing BODY text \n$bodyText");
     }
   }
@@ -210,7 +213,7 @@ class FetchParser extends ResponseParser<FetchImapResult> {
   /// * https://tools.ietf.org/html/rfc3501#section-7.4.2
   /// * http://hea-www.cfa.harvard.edu/~fine/opinions/IMAPsucks.html
   void _parseBodyRecursive(BodyPart body, ImapValue bodyValue) {
-    var isMultipartSubtypeSet = false;
+    var isMultipartSubtypeSet = false; // ← questa è inutile
     var multipartChildIndex = -1;
     var children = bodyValue.children;
     if (children.length >= 7 && children[0].children == null) {
