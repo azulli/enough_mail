@@ -492,7 +492,7 @@ class MessageBuilder extends PartBuilder {
             var quotedHtml = '<br/><blockquote>' +
                 forwardHeader.split('\r\n').join('<br/>\r\n') +
                 '<br/>\r\n' +
-                decodedHtml +
+                (decodedHtml ?? '') +
                 '</blockquote>';
             builder.addTextHtml(quotedHtml);
             processedTextHtmlPart = true;
@@ -517,9 +517,9 @@ class MessageBuilder extends PartBuilder {
 
   static String _quotePlain(String header, String text) {
     return '>' +
-        header.split('\r\n').join('\r\n>') +
+        (header ?? '').split('\r\n').join('\r\n>') +
         '\r\n>' +
-        text.split('\r\n').join('\r\n>');
+        (text ?? '').split('\r\n').join('\r\n>');
   }
 
   /// Prepares to create a reply to the given [originalMessage] to be send by the user specifed in [from].
@@ -601,7 +601,7 @@ class MessageBuilder extends PartBuilder {
         var quotedHtml = '<blockquote><br/>' +
             replyHeader +
             '<br/>' +
-            decodedHtml +
+            (decodedHtml ?? '') +
             '</blockquote>';
         builder.addTextHtml(quotedHtml);
       }
