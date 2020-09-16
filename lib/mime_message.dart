@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:enough_mail/codecs/mail_codec.dart';
 import 'package:enough_mail/codecs/date_codec.dart';
+import 'package:enough_mail/codecs/mail_codec.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:enough_mail/mail_address.dart';
 import 'package:enough_mail/mail_conventions.dart';
@@ -341,7 +341,15 @@ class MimePart {
       buffer.write(headerRaw);
     }
     buffer.write('\r\n');
-    if (parts?.isNotEmpty ?? false) {
+    // Special case for message/rfc822
+    if (_contentTypeHeader != null &&
+        _contentTypeHeader.mediaType.sub == MediaSubtype.messageRfc822) {
+      if (_isParsed) {
+        buffer.write(text ?? '');
+      } else {
+        buffer.write(bodyRaw?.substring(bodyRaw.indexOf('\r\n\r\n') + 4) ?? '');
+      }
+    } else if (parts?.isNotEmpty ?? false) {
       multiPartBoundary ??= _contentTypeHeader?.boundary;
       if (multiPartBoundary == null) {
         throw StateError(
