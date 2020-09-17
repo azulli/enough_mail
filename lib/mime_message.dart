@@ -278,7 +278,8 @@ class MimePart {
   /// Parses this and all children MIME parts.
   void parse() {
     var body = bodyRaw;
-    if (body == null) {
+    // Prevents multiple parsing and headers duplication
+    if (body == null || _isParsed) {
       //print('Unable to parse message without body');
       return;
     }
@@ -306,7 +307,14 @@ class MimePart {
     }
     _isParsed = true;
     var contentType = getHeaderContentType();
-    if (contentType?.boundary != null) {
+    // Decodifica il messaggio RFC822?
+    if (contentType?.mediaType?.sub == MediaSubtype.messageRfc822) {
+      var part = MimePart()..bodyRaw = body;
+      text = ''; // MAH
+      bodyRaw = ''; // MAH 2
+      part.parse();
+      addPart(part);
+    } else if (contentType?.boundary != null) {
       var splitBoundary = '--' + contentType.boundary + '\r\n';
       var childParts = body.split(splitBoundary);
       if (!body.startsWith(splitBoundary)) {
@@ -345,7 +353,9 @@ class MimePart {
     if (_contentTypeHeader != null &&
         _contentTypeHeader.mediaType.sub == MediaSubtype.messageRfc822) {
       if (_isParsed) {
-        buffer.write(text ?? '');
+        parts[0].render(buffer);
+        buffer.write('\r\n');
+        // buffer.write(text ?? '');
       } else {
         buffer.write(bodyRaw?.substring(bodyRaw.indexOf('\r\n\r\n') + 4) ?? '');
       }
@@ -364,6 +374,10 @@ class MimePart {
       buffer.write('--');
       buffer.write(multiPartBoundary);
       buffer.write('--');
+      buffer.write('\r\n');
+    } else if (text != null) {
+      // Assumes the headers are decoded
+      buffer.write(text);
       buffer.write('\r\n');
     } else if (bodyRaw != null) {
       buffer.write(bodyRaw);
@@ -640,11 +654,11 @@ class MimeMessage extends MimePart {
     final idParts = fetchId.split('.').map<int>((part) => int.parse(part));
     MimePart parent = this;
     for (var id in idParts) {
-      if (parent.parts == null || parent.parts.length < id) {
+      if (id > 0 && (parent.parts == null || parent.parts.length < id)) {
         // this mime message is not fully loaded
         return null;
       }
-      parent = parent.parts[id - 1];
+      parent = parent.parts[id == 0 ? 0 : id - 1];
     }
     return parent;
   }
@@ -948,14 +962,23 @@ class BodyPart {
 
   String _getFetchId([String tail]) {
     if (_parent != null) {
-      var index = _parent.parts.indexOf(this);
-      var fetchIdPart = (index + 1).toString();
-      if (tail == null) {
-        tail = fetchIdPart;
+      // Il controllo sul subtype messageRfc822 evita il message/partial
+      if ((contentType?.mediaType?.isMultipart ?? false) &&
+          _parent.contentType?.mediaType?.sub == MediaSubtype.messageRfc822) {
+        // Questa parte è indicata con 0 perché il server MIME non la utilizza
+        // nella scomposizione del parametro BODY[...] della FETCH
+        tail = tail == null ? '0' : '0.' + tail;
+        return _parent._getFetchId(tail);
       } else {
-        tail = fetchIdPart + '.' + tail;
+        var index = _parent.parts.indexOf(this);
+        var fetchIdPart = (index + 1).toString();
+        if (tail == null) {
+          tail = fetchIdPart;
+        } else {
+          tail = fetchIdPart + '.' + tail;
+        }
+        return _parent._getFetchId(tail);
       }
-      return _parent._getFetchId(tail);
     } else {
       return tail;
     }
