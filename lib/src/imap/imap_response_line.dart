@@ -6,7 +6,8 @@ class ImapResponseLine {
   String rawLine;
   String line;
   int literal;
-  bool get isWithLiteral => (literal != null && literal > 0);
+  // Should consider empty bodies with literal value 0
+  bool get isWithLiteral => (literal != null && literal >= 0);
   Uint8List rawData;
 
   ImapResponseLine.raw(this.rawData) {
