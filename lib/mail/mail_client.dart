@@ -44,6 +44,9 @@ class MailClient {
 
   List<Mailbox> _mailboxes;
 
+  /// Retrieves the previously caches mailboxes
+  List<Mailbox> get mailboxes => _mailboxes;
+
   /// Retrieves the low level mail client for reading mails
   /// Example:
   /// ```
@@ -184,9 +187,6 @@ class MailClient {
     if (order != null) {
       firstBoxes = sortMailboxes(order, mailboxes, keepRemaining: false);
       mailboxes = [...mailboxes];
-      for (final box in firstBoxes) {
-        mailboxes.remove(box);
-      }
       mailboxes.sort((b1, b2) => b1.path.compareTo(b2.path));
     }
     var separator = _account.incoming.pathSeparator;
@@ -200,10 +200,36 @@ class MailClient {
       final children = parent.children;
       for (var i = firstBoxes.length; --i >= 0;) {
         final box = firstBoxes[i];
-        children.insert(0, TreeElement<Mailbox>(box, parent));
+        var element = _extractTreeElementWithoutChildren(parent, box);
+        if (element.children?.isEmpty ?? true) {
+          // this elemement has been removed:
+          element.parent = parent;
+        } else {
+          element = TreeElement<Mailbox>(box, parent);
+        }
+        children.insert(0, element);
       }
     }
     return MailResponseHelper.success<Tree<Mailbox>>(tree);
+  }
+
+  TreeElement<Mailbox> _extractTreeElementWithoutChildren(
+      TreeElement root, Mailbox mailbox) {
+    if (root.value == mailbox) {
+      if ((root.children?.isEmpty ?? true) && (root.parent != null)) {
+        root.parent.children.remove(root);
+      }
+      return root;
+    }
+    if (root.children != null) {
+      for (var child in root.children) {
+        var element = _extractTreeElementWithoutChildren(child, mailbox);
+        if (element != null) {
+          return element;
+        }
+      }
+    }
+    return null;
   }
 
   /// Retrieves the mailbox with the specified [flag] from the provided [mailboxes].
@@ -290,7 +316,7 @@ class MailClient {
     return response;
   }
 
-  /// Loads the specified segment of messages starting at the latest message and going down [count] messages.
+  /// Loads the specified page of messages starting at the latest message and going down [count] messages.
   /// Specify segment's number with [page] - by default this is 1, so the first segment is downloaded.
   /// Optionally specify the [mailbox] in case none has been selected before or if another mailbox/folder should be queried.
   /// Optionally specify the [fetchPreference] to define the preferred downloaded scope.
@@ -320,9 +346,33 @@ class MailClient {
         fetchPreference: fetchPreference);
   }
 
+  /// Loads the specified sequence of messages.
+  /// Optionally specify the [mailbox] in case none has been selected before or if another mailbox/folder should be queried.
+  /// Optionally specify the [fetchPreference] to define the preferred downloaded scope.
+  /// By default  messages that are within the size bounds as defined in the `downloadSizeLimit`
+  /// in the `MailClient`s constructor are donwloaded fully.
+  /// Note that the preference cannot be realized on some backends such as POP3 mail servers.
+  Future<MailResponse<List<MimeMessage>>> fetchMessageSequence(
+      MessageSequence sequence,
+      {Mailbox mailbox,
+      FetchPreference fetchPreference}) async {
+    mailbox ??= _selectedMailbox;
+    if (mailbox == null) {
+      throw StateError('Either specify a mailbox or select a mailbox first');
+    }
+    if (mailbox != _selectedMailbox) {
+      var selectResponse = await selectMailbox(mailbox);
+      if (selectResponse.isFailedStatus) {
+        return MailResponseHelper.failure<List<MimeMessage>>('select');
+      }
+    }
+    return _incomingMailClient.fetchMessageSequence(sequence,
+        fetchPreference: fetchPreference);
+  }
+
   /// Fetches the contents of the specified [message].
   /// This can be useful when you have specified an automatic download
-  /// limit with [downloadSizeLimit] in the MailClient's constructor.
+  /// limit with `downloadSizeLimit` in the MailClient's constructor or when you have specified a `fetchPreference` in `fetchMessages`.
   Future<MailResponse<MimeMessage>> fetchMessageContents(MimeMessage message) {
     int id;
     bool isUid;
@@ -707,17 +757,21 @@ class _IncomingImapClient extends _IncomingMailClient {
   }
 
   Future<void> _pauseIdle() {
-    if (_isInIdleMode) {
+    if (_isInIdleMode && !_isIdlePaused) {
       _isIdlePaused = true;
       return stopPolling();
     }
     return Future.value();
   }
 
-  Future<void> _resumeIdle() {
+  Future<void> _resumeIdle() async {
     if (_isIdlePaused) {
-      _isIdlePaused = false;
-      return startPolling(_pollDuration);
+      try {
+        await startPolling(_pollDuration);
+        _isIdlePaused = false;
+      } catch (e) {
+        print('Error while resume IDLE: $e');
+      }
     }
     return Future.value();
   }
@@ -890,7 +944,7 @@ class _IncomingImapClient extends _IncomingMailClient {
           criteria = '(UID FLAGS RFC822.SIZE BODYSTRUCTURE)';
           break;
         case FetchPreference.full:
-          criteria = '(UID FLAGS BODY.PEEK[])';
+          criteria = '(UID FLAGS RFC822.SIZE BODY.PEEK[])';
           break;
       }
 

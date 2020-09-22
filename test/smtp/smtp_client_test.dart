@@ -1,3 +1,4 @@
+import 'package:enough_mail/src/smtp/smtp_command.dart';
 import 'package:test/test.dart';
 import 'dart:io';
 import 'package:event_bus/event_bus.dart';
@@ -45,11 +46,6 @@ void main() {
     client = SmtpClient('coi-dev.org',
         bus: EventBus(sync: true), isLogEnabled: _isLogEnabled);
 
-    // client.eventBus
-    //     .on<SmtpEvent>()
-    //     .listen((e) => expungedMessages.add(e.messageSequenceId));
-    // client.eventBus.on<ImapFetchEvent>().listen((e) => fetchEvents.add(e));
-
     if (useRealConnection) {
       await client.connectToServer(smtpHost, smtpPort,
           isSecure: (smtpPort != 25));
@@ -64,11 +60,7 @@ void main() {
       client.serverInfo = SmtpServerInfo();
       //   capResponse = await client.login("testuser", "testpassword");
     }
-    // mockInbox = ServerMailbox(
-    //     "INBOX",
-    //     List<MailboxFlag>.from([MailboxFlag.hasChildren]),
-    //     supportedMessageFlags,
-    //     supportedPermanentMessageFlags);
+
     _log('SmtpClient test setup complete');
   });
 
@@ -116,10 +108,28 @@ void main() {
     expect(response.type, SmtpResponseType.success);
     expect(response.code, 221);
   });
+
+  test('SmtpClient with exception', () async {
+    final command = DummySmtpCommand('example');
+    try {
+      final response = await client.sendCommand(DummySmtpCommand('example'));
+      fail('sendCommand should throw. (but got: $response)');
+    } catch (e, stackTrace) {
+      expect(e, isA<DummySmtpCommand>());
+    }
+  });
 }
 
 void _log(String text) {
   if (_isLogEnabled) {
     print(text);
+  }
+}
+
+class DummySmtpCommand extends SmtpCommand {
+  DummySmtpCommand(String command) : super(command);
+  @override
+  String nextCommand(SmtpResponse response) {
+    throw this;
   }
 }
