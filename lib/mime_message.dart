@@ -179,7 +179,10 @@ class MimePart {
 
   /// Decodes the text of this part.
   String decodeContentText() {
-    text ??= String.fromCharCodes(bodyRaw);
+    // text ??= String.fromCharCodes(bodyRaw);
+    if (bodyRaw != null && bodyRaw.isNotEmpty) {
+      text ??= String.fromCharCodes(bodyRaw);
+    }
     if (text == null) {
       return null;
     }
@@ -287,12 +290,10 @@ class MimePart {
   void parse() {
     //print('→ parse');
     // Don't reparse.
-    if (bodyRaw == null || bodyRaw.isEmpty || _isParsed) return;
-    /* var body = bodyRaw;
-    if (body == null) {
+    if (bodyRaw == null || bodyRaw.isEmpty || _isParsed) {
       //print('Unable to parse message without body');
       return;
-    } */
+    }
     //print('parse \n[$body]');
     if (headers == null) {
       //**Uint8List body;
@@ -315,20 +316,14 @@ class MimePart {
         //ParserHelper.parseHeader(body);
         if (headerParseResult.bodyStartIndex != null) {
           if (headerParseResult.bodyStartIndex >= bodyRaw.length) {
-            //**body = null;
-            bodyRaw = null; // Dovrebbe fixare il body quando scarica 0 byte
-            //Uint8List(0);
+            bodyRaw = null; // Sould fix 0 bytes body
+            //bodyRaw = Uint8List(0);
           } else {
-            //**body = Uint8List.sublistView(
-            //**    bodyRaw, headerParseResult.bodyStartIndex);
             bodyRaw = Uint8List.fromList(Uint8List.sublistView(
                 bodyRaw, headerParseResult.bodyStartIndex));
             // body = body.substring(headerParseResult.bodyStartIndex);
           }
         }
-        /* ** else {
-          body = bodyRaw;
-        } ** */
         headers = headerParseResult.headers
             .map((h) => Header(h.name, h.value))
             .toList();
@@ -336,7 +331,7 @@ class MimePart {
         text = String.fromCharCodes(bodyRaw);
       }
     } else {
-      text = String.fromCharCodes(bodyRaw); // QUE?
+      text = String.fromCharCodes(bodyRaw);
     }
     _isParsed = true;
     //print('Headers\n$headers');
@@ -350,10 +345,11 @@ class MimePart {
     // Anyway more tests should be done for non multipart bodies.
     if (contentType?.mediaType?.sub == MediaSubtype.messageRfc822) {
       var part = MimePart()..bodyRaw = bodyRaw;
-      text = null;
-      bodyRaw = null;
       part.parse();
-      addPart(part);
+      // Adds the messsage parts maintaining the bodyRaw of the mime part
+      for (var mp in part.parts) {
+        addPart(mp);
+      }
     } else if (contentType?.boundary != null) {
       var splitBoundary = '--' + contentType.boundary + '\r\n';
       final boundaryChars = utf8.encode(splitBoundary);
@@ -386,7 +382,7 @@ class MimePart {
         _contentTypeHeader.mediaType.sub == MediaSubtype.messageRfc822) {
       if (_isParsed) {
         // NOTE rfc822 parts have data moved to a syntetic child MimePart
-        parts[0].render(buffer);
+        buffer.write(String.fromCharCodes(bodyRaw));
         buffer.write('\r\n');
         //buffer.write(text ?? '');
       } else if (bodyRaw != null) {
