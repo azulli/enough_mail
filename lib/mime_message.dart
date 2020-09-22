@@ -343,7 +343,18 @@ class MimePart {
     //stdout.write('PRESS <ENTER> ');
     //stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
     var contentType = getHeaderContentType();
-    if (contentType?.boundary != null) {
+    // Decodes a rfc822 message content in the current mime part
+    // It does so moving the bodyRaw into a new MimePart and nulling the current
+    // body contents. This should address the extra tree nodes in the BODYSTRUCTURE
+    // recostructed from a multipart rfc822 embedded message.
+    // Anyway more tests should be done for non multipart bodies.
+    if (contentType?.mediaType?.sub == MediaSubtype.messageRfc822) {
+      var part = MimePart()..bodyRaw = bodyRaw;
+      text = null;
+      bodyRaw = null;
+      part.parse();
+      addPart(part);
+    } else if (contentType?.boundary != null) {
       var splitBoundary = '--' + contentType.boundary + '\r\n';
       final boundaryChars = utf8.encode(splitBoundary);
       var pos = RawDataHelper.findBoundaries(bodyRaw, boundaryChars, 0);
@@ -357,26 +368,6 @@ class MimePart {
         part.parse();
         addPart(part);
       }
-      /* var childParts = body.split(splitBoundary);
-      if (!body.startsWith(splitBoundary)) {
-        // mime-readers can ignore the preamble:
-        childParts.removeAt(0);
-      }
-      var lastPart = childParts.last;
-      var closingIndex =
-          lastPart.lastIndexOf('--' + contentType.boundary + '--');
-      if (closingIndex != -1) {
-        childParts.removeLast();
-        lastPart = lastPart.substring(0, closingIndex);
-        childParts.add(lastPart);
-      }
-      for (var childPart in childParts) {
-        if (childPart.isNotEmpty) {
-          var part = MimePart()..bodyRaw = childPart;
-          part.parse();
-          addPart(part);
-        }
-      } */
     }
   }
 
@@ -390,7 +381,29 @@ class MimePart {
       buffer.write(headerRaw);
     }
     buffer.write('\r\n');
-    if (parts?.isNotEmpty ?? false) {
+    // Special case for message/rfc822
+    if (_contentTypeHeader != null &&
+        _contentTypeHeader.mediaType.sub == MediaSubtype.messageRfc822) {
+      if (_isParsed) {
+        // NOTE rfc822 parts have data moved to a syntetic child MimePart
+        parts[0].render(buffer);
+        buffer.write('\r\n');
+        //buffer.write(text ?? '');
+      } else if (bodyRaw != null) {
+        var seqPos = RawDataHelper.findSequence(
+            bodyRaw,
+            [
+              AsciiRunes.runeCarriageReturn,
+              AsciiRunes.runeLineFeed,
+              AsciiRunes.runeCarriageReturn,
+              AsciiRunes.runeLineFeed
+            ] as Uint8List);
+        if (seqPos > -1) {
+          buffer.write(
+              String.fromCharCodes(Uint8List.sublistView(bodyRaw, seqPos + 4)));
+        }
+      }
+    } else if (parts?.isNotEmpty ?? false) {
       multiPartBoundary ??= _contentTypeHeader?.boundary;
       if (multiPartBoundary == null) {
         throw StateError(
@@ -682,11 +695,11 @@ class MimeMessage extends MimePart {
     final idParts = fetchId.split('.').map<int>((part) => int.parse(part));
     MimePart parent = this;
     for (var id in idParts) {
-      if (parent.parts == null || parent.parts.length < id) {
+      if (id > 0 && (parent.parts == null || parent.parts.length < id)) {
         // this mime message is not fully loaded
         return null;
       }
-      parent = parent.parts[id - 1];
+      parent = parent.parts[id == 0 ? 0 : id - 1];
     }
     return parent;
   }
@@ -995,20 +1008,20 @@ class BodyPart {
       // should be addressed directly with a ".TEXT" suffix after the
       // message part id. When accounting this, the resulting fetchId can be
       // used to correctly load the required mime part of the message.
-      /* if ((_parent.contentType.mediaType.sub == MediaSubtype.messageRfc822 &&
-              _parent.parts.length == 1) &&
-          contentType.mediaType.isMultipart) {
-        return _parent._getFetchId(tail ?? 'TEXT');
-      } else { */
-      var index = _parent.parts.indexOf(this);
-      var fetchIdPart = (index + 1).toString();
-      if (tail == null) {
-        tail = fetchIdPart;
+      if ((contentType?.mediaType?.isMultipart ?? false) &&
+          _parent.contentType?.mediaType?.sub == MediaSubtype.messageRfc822) {
+        tail = tail == null ? '0' : '0.' + tail;
+        return _parent._getFetchId(tail);
       } else {
-        tail = fetchIdPart + '.' + tail;
+        var index = _parent.parts.indexOf(this);
+        var fetchIdPart = (index + 1).toString();
+        if (tail == null) {
+          tail = fetchIdPart;
+        } else {
+          tail = fetchIdPart + '.' + tail;
+        }
+        return _parent._getFetchId(tail);
       }
-      // }
-      return _parent._getFetchId(tail);
     } else {
       return tail;
     }
