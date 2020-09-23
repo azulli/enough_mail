@@ -638,10 +638,10 @@ class MimeMessage extends MimePart {
   List<ContentInfo> findContentInfo(
       {ContentDisposition disposition = ContentDisposition.attachment}) {
     var result = <ContentInfo>[];
-    if (parts?.isNotEmpty ?? false || body == null) {
-      collectContentInfo(disposition, result, null);
-    } else if (body != null) {
+    if (body != null) {
       body.collectContentInfo(disposition, result);
+    } else if (parts?.isNotEmpty ?? false) {
+      collectContentInfo(disposition, result, null);
     }
     return result;
   }
