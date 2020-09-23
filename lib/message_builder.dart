@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+
 import 'package:enough_mail/codecs/date_codec.dart';
 import 'package:enough_mail/codecs/mail_codec.dart';
 import 'package:enough_mail/enough_mail.dart';
@@ -478,20 +479,43 @@ class MessageBuilder extends PartBuilder {
     if (originalMessage.parts?.isNotEmpty ?? false) {
       var processedTextPlainPart = false;
       var processedTextHtmlPart = false;
+      builder.contentType = originalMessage.getHeaderContentType();
+
+      /// Find a text/plain or text/html part
+      MimePart _recursiveFind(
+          final MimePart current, final MediaSubtype subtype) {
+        var found;
+        if (current.isTextMediaType() && current.mediaType.sub == subtype) {
+          print('Found ${current.mediaType}');
+          found = current;
+        } else {
+          for (var child in current.parts ?? []) {
+            found = _recursiveFind(child, subtype);
+            if (found != null) break;
+          }
+        }
+        return found;
+      }
+
       for (var part in originalMessage.parts) {
-        builder.contentType = originalMessage.getHeaderContentType();
-        if (part.isTextMediaType()) {
-          if (!processedTextPlainPart &&
-              part.mediaType.sub == MediaSubtype.textPlain) {
-            var plainText = part.decodeContentText();
+        // Tries to find a text to be quoted down in the tree rooted at every
+        // part of the original message. This solution does not handle the
+        // multipart/alternative content type.
+        var foundText;
+        var foundHtml;
+        if (!processedTextPlainPart) {
+          foundText = _recursiveFind(part, MediaSubtype.textPlain);
+          if (foundText != null) {
+            var plainText = foundText.decodeContentText();
             var quotedPlainText = _quotePlain(forwardHeader, plainText);
             builder.addTextPlain(quotedPlainText);
             processedTextPlainPart = true;
-            continue;
           }
-          if (!processedTextHtmlPart &&
-              part.mediaType.sub == MediaSubtype.textHtml) {
-            var decodedHtml = part.decodeContentText();
+        }
+        if (!processedTextHtmlPart) {
+          foundHtml = _recursiveFind(part, MediaSubtype.textHtml);
+          if (foundHtml != null) {
+            var decodedHtml = foundHtml.decodeContentText();
             var quotedHtml = '<br/><blockquote>' +
                 forwardHeader.split('\r\n').join('<br/>\r\n') +
                 '<br/>\r\n' +
@@ -499,10 +523,12 @@ class MessageBuilder extends PartBuilder {
                 '</blockquote>';
             builder.addTextHtml(quotedHtml);
             processedTextHtmlPart = true;
-            continue;
           }
         }
-        builder.addPart(mimePart: part);
+        // Cannot use the processed* flags that are external to the loop
+        if (foundText == null && foundHtml == null) {
+          builder.addPart(mimePart: part);
+        }
       }
     } else {
       // no parts, this is most likely a plain text message:

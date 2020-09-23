@@ -339,15 +339,12 @@ class MimePart {
     //stdin.readLineSync(encoding: Encoding.getByName('utf-8'));
     var contentType = getHeaderContentType();
     // Decodes a rfc822 message content in the current mime part
-    // It does so moving the bodyRaw into a new MimePart and nulling the current
-    // body contents. This should address the extra tree nodes in the BODYSTRUCTURE
-    // recostructed from a multipart rfc822 embedded message.
     // Anyway more tests should be done for non multipart bodies.
     if (contentType?.mediaType?.sub == MediaSubtype.messageRfc822) {
       var part = MimePart()..bodyRaw = bodyRaw;
       part.parse();
       // Adds the messsage parts maintaining the bodyRaw of the mime part
-      for (var mp in part.parts) {
+      for (var mp in part.parts ?? []) {
         addPart(mp);
       }
     } else if (contentType?.boundary != null) {
