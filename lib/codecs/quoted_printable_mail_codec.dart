@@ -131,12 +131,24 @@ class QuotedPrintableMailCodec extends MailCodec {
           while (part.length > (i + 4) && part[i + 3] == '=') {
             i += 3;
             var hexText = part.substring(i + 1, i + 3);
-            charCode = int.parse(hexText, radix: 16);
-            charCodes.add(charCode);
+            charCode = int.tryParse(hexText, radix: 16);
+            if (charCode != null) {
+              charCodes.add(charCode);
+            } else {
+              print(
+                  'unable to decode quotedPrintable [$part]: invalid hex code [$hexText] at $i.');
+              buffer.write(hexText);
+              break;
+            }
           }
 
-          var decoded = codec.decode(charCodes);
-          buffer.write(decoded);
+          try {
+            var decoded = codec.decode(charCodes);
+            buffer.write(decoded);
+          } on FormatException catch (err) {
+            print('unable to decode quotedPrintable buffer: ${err.message}');
+            buffer.write(String.fromCharCodes(charCodes));
+          }
         }
         i += 2;
       } else if (isHeader && char == '_') {
