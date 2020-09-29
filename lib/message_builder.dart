@@ -158,23 +158,39 @@ class PartBuilder {
   /// [mediaType] The media type of the file.
   /// Specify the optional [encoding] if you do not want to use base64 content-transfer encoding.
   /// Specify the optional content [disposition] element, if it should not be populated automatically.
+  /// Specify the optional [cacheFile] if you want to use an external base64 file for the attachment.
   Future<PartBuilder> addFile(File file, MediaType mediaType,
       {MessageEncoding encoding = MessageEncoding.base64,
-      ContentDispositionHeader disposition}) async {
+      ContentDispositionHeader disposition,
+      File cacheFile}) async {
     disposition ??=
         ContentDispositionHeader.from(ContentDisposition.attachment);
     disposition.filename ??= _getFileName(file);
     disposition.size ??= await file.length();
     disposition.modificationDate ??= await file.lastModified();
     var child = addPart(disposition: disposition);
-    var data = await file.readAsBytes();
+    // Common parameters
     child.encoding = encoding;
     child.contentTransferEncoding =
         MessageBuilder.getContentTransferEncodingName(encoding);
     child.setContentType(mediaType);
     child.contentType.setParameter('name', '"${disposition.filename}"');
-    child._part.bodyRaw =
-        Uint8List.fromList(utf8.encode(MailCodec.base64.encodeData(data)));
+    if (cacheFile == null) {
+      // FIXME: The file sould not be loaded at this stage
+      var data = await file.readAsBytes();
+      /* child.contentTransferEncoding =
+          MessageBuilder.getContentTransferEncodingName(encoding);
+      child.setContentType(mediaType);
+      child.contentType.setParameter('name', '"${disposition.filename}"'); */
+      // FIXME: bodyRaw should not be set at this stage
+      child._part.bodyRaw =
+          Uint8List.fromList(utf8.encode(MailCodec.base64.encodeData(data)));
+    } else {
+      print('Attachment content cached in ${cacheFile.uri}');
+      child._part.externalData = true;
+      child._part.bodyData = cacheFile;
+      await MailCodec.base64.cachedEncodeFile(file, cacheFile);
+    }
     return child;
   }
 

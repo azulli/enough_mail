@@ -18,7 +18,7 @@ class SmtpAuthLoginCommand extends SmtpCommand {
   }
 
   @override
-  String nextCommand(SmtpResponse response) {
+  Future<String> nextCommand(SmtpResponse response) async {
     if (response.code != 334 && response.code != 235) {
       print(
           'Warning: Unexpected status code during AUTH LOGIN: ${response.code}. Expected: 334 or 235. \nuserNameSent=$_userNameSent, userPasswordSent=$_userPasswordSent');

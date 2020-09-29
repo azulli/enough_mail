@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:enough_mail/enough_mail.dart';
 import 'package:enough_mail/mime_message.dart';
 import 'package:enough_mail/smtp/smtp_response.dart';
@@ -9,12 +11,16 @@ class SmtpSendMailCommand extends SmtpCommand {
   final MimeMessage _message;
   final bool _use8BitEncoding;
   final MailAddress from;
+  final File externalBuffer;
   SmtpSendCommandSequence _currentStep = SmtpSendCommandSequence.mailFrom;
   int _recipientIndex = 0;
 
   List<String> _recipientAddresses;
 
-  SmtpSendMailCommand(this._message, this._use8BitEncoding, this.from)
+  bool _externalBufferReady = false;
+
+  SmtpSendMailCommand(
+      this._message, this._use8BitEncoding, this.from, this.externalBuffer)
       : super('MAIL FROM');
 
   @override
@@ -27,7 +33,7 @@ class SmtpSendMailCommand extends SmtpCommand {
   }
 
   @override
-  String nextCommand(SmtpResponse response) {
+  Future<String> nextCommand(SmtpResponse response) async {
     var step = _currentStep;
     switch (step) {
       case SmtpSendCommandSequence.mailFrom:
@@ -52,11 +58,26 @@ class SmtpSendMailCommand extends SmtpCommand {
         }
         break;
       case SmtpSendCommandSequence.data:
-        _currentStep = SmtpSendCommandSequence.done;
-        // \r\n.\r\n is the data stop sequence, so 'pad' this sequence in the message data
-        var data = _message.renderMessage()
-          ..replaceAll('\r\n.\r\n', '\r\n..\r\n');
-        return data + '\r\n.';
+        if (externalBuffer == null) {
+          _currentStep = SmtpSendCommandSequence.done;
+          // \r\n.\r\n is the data stop sequence, so 'pad' this sequence in the message data
+          var data = _message.renderMessage()
+            ..replaceAll('\r\n.\r\n', '\r\n..\r\n');
+          return data + '\r\n.';
+        } else {
+          if (_externalBufferReady) {
+            _externalBufferReady = false;
+            _currentStep = SmtpSendCommandSequence.done;
+          } else {
+            _externalBufferReady =
+                await _message.renderMessageEx(externalBuffer);
+            // Move to the streaming function in SmtpClient?
+            await externalBuffer.writeAsString('\r\n.\r\n',
+                mode: FileMode.append, flush: true);
+          }
+          return null;
+        }
+        break;
       default:
         return null;
     }
@@ -73,5 +94,10 @@ class SmtpSendMailCommand extends SmtpCommand {
     }
     return (response.type != SmtpResponseType.success) ||
         (_currentStep == SmtpSendCommandSequence.done);
+  }
+
+  @override
+  bool isStreamData(SmtpResponse response) {
+    return _currentStep == SmtpSendCommandSequence.data && _externalBufferReady;
   }
 }

@@ -7,8 +7,8 @@ class SmtpQuitCommand extends SmtpCommand {
   SmtpQuitCommand(this._client) : super('QUIT');
 
   @override
-  String nextCommand(SmtpResponse response) {
-    _client.closeConnection();
+  Future<String> nextCommand(SmtpResponse response) async {
+    await _client.closeConnection();
     return null;
   }
 }

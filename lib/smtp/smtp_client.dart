@@ -173,9 +173,11 @@ class SmtpClient {
   /// Sends the specified [message].
   /// Set [use8BitEncoding] to `true` for sending a UTF-8 encoded message body.
   /// Specify [from] in case the originator is different from the `From` header in the message.
+  /// Specify [externalBuffer] for caching the message exernally prior to send.
   Future<SmtpResponse> sendMessage(MimeMessage message,
-      {bool use8BitEncoding = false, MailAddress from}) {
-    return sendCommand(SmtpSendMailCommand(message, use8BitEncoding, from));
+      {bool use8BitEncoding = false, MailAddress from, File externalBuffer}) {
+    return sendCommand(
+        SmtpSendMailCommand(message, use8BitEncoding, from, externalBuffer));
   }
 
   /// Signs in the user with the given [name] and [password].
@@ -216,7 +218,18 @@ class SmtpClient {
     _socket?.write(commandText + '\r\n');
   }
 
-  void onServerResponse(List<String> responseTexts) {
+  void streamData(File sourceFile) async {
+    final total = sourceFile.lengthSync();
+    var transferred = 0;
+    await sourceFile.openRead().listen((event) {
+      transferred += event.length;
+      eventBus.fire(SmtpStreamDataEvent(transferred, total));
+      //_log("Sending ${event.length} bytes to the SMTP server");
+      _socket?.add(event);
+    }).asFuture();
+  }
+
+  void onServerResponse(List<String> responseTexts) async {
     if (_isLogEnabled) {
       for (var responseText in responseTexts) {
         _log('S: $responseText');
@@ -225,9 +238,12 @@ class SmtpClient {
     var response = SmtpResponse(responseTexts);
     if (_currentCommand != null) {
       try {
-        var commandText = _currentCommand.nextCommand(response);
+        var commandText = await _currentCommand.nextCommand(response);
         if (commandText != null) {
           write(commandText);
+        } else if (_currentCommand.isStreamData(response)) {
+          await streamData(
+              (_currentCommand as SmtpSendMailCommand).externalBuffer);
         } else if (_currentCommand.isCommandDone(response)) {
           _currentCommand.completer.complete(response);
           //_log("Done with command ${_currentCommand.command}");

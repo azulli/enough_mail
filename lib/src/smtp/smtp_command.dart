@@ -13,11 +13,15 @@ class SmtpCommand {
     return _command;
   }
 
-  String nextCommand(SmtpResponse response) {
+  Future<String> nextCommand(SmtpResponse response) async {
     return null;
   }
 
   bool isCommandDone(SmtpResponse response) {
     return true;
+  }
+
+  bool isStreamData(SmtpResponse response) {
+    return false;
   }
 }

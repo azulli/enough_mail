@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:enough_mail/codecs/date_codec.dart';
@@ -24,6 +25,10 @@ class MimePart {
   set headerRaw(String headerRaw) => _headerRaw = headerRaw;
 
   Uint8List bodyRaw;
+
+  // Attributes for offload body data
+  bool externalData = false;
+  File bodyData;
 
   String text;
   List<MimePart> parts;
@@ -365,7 +370,7 @@ class MimePart {
   }
 
   /// Renders this mime part with all children parts into the specified [buffer].
-  void render(StringBuffer buffer) {
+  void render(StringSink buffer) {
     if (headers != null) {
       for (var header in headers) {
         header.render(buffer);
@@ -412,6 +417,36 @@ class MimePart {
       buffer.write(multiPartBoundary);
       buffer.write('--');
       buffer.write('\r\n');
+    } else if (externalData && bodyData != null) {
+      // Special case for externally cached body...
+      if (buffer is IOSink) {
+        // ...written into an IOSink
+        // Loading loop
+        var raf = bodyData.openSync();
+        // Tight loop
+        var pos = 0;
+        try {
+          var max = raf.lengthSync();
+          while (pos < max) {
+            var tmp = raf.readSync(65535);
+            buffer.add(tmp);
+            pos += tmp.length;
+            if (pos < max) {
+              raf.setPositionSync(pos);
+            }
+          }
+        } catch (err) {
+          throw StateError(
+              'mime message rendering error: cannot read from cache body.');
+        } finally {
+          raf.closeSync();
+        }
+        buffer.write('\r\n');
+      } else {
+        // ...written into a StringBuffer
+        buffer.write(bodyData.readAsStringSync());
+        buffer.write('\r\n');
+      }
     } else if (bodyRaw != null) {
       buffer.write(String.fromCharCodes(bodyRaw));
       buffer.write('\r\n');
@@ -544,6 +579,13 @@ class MimeMessage extends MimePart {
     var buffer = StringBuffer();
     render(buffer);
     return buffer.toString();
+  }
+
+  /// Renders the complete message into a File.
+  Future<bool> renderMessageEx(File outFile) async {
+    var sink = outFile.openWrite();
+    render(sink); // renderEx
+    return await sink.close().then((value) => true);
   }
 
   /// Checks if this is a typical text message
@@ -863,7 +905,7 @@ class Header {
     buffer.write(value);
   }
 
-  void render(StringBuffer buffer) {
+  void render(/*StringBuffer*/ StringSink buffer) {
     var length = name.length + ': '.length + (value?.length ?? 0);
     buffer.write(name);
     buffer.write(': ');
