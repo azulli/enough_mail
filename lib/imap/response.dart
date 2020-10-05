@@ -117,3 +117,15 @@ class QuotaRootResult {
 
   QuotaRootResult(this.mailboxName, this.rootNames);
 }
+
+/// Result for SORT and UID SORT operations
+///
+/// Reuses the [SearchImapResult] class because either are the same operation
+class SortImapResult {
+  /// A list of message IDs
+  List<int> ids;
+
+  /// The highest modification sequence in the searched messages
+  /// The modification sequeqnce can only be returned when the MODSEQ search criteria has been used and when the server supports the CONDSTORE capability.
+  int highestModSequence;
+}

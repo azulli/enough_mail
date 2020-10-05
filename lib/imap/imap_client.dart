@@ -1283,6 +1283,32 @@ class ImapClient {
     return sendCommand<QuotaRootResult>(cmd, parser);
   }
 
+  /// Sorts messages by the given criteria
+  ///
+  /// [sortCriteria] the criteria used for sorting the results like 'ARRIVAL' or 'SUBJECT'
+  /// [charset] the charset used for the searching criteria
+  /// [searchCriteria] the criteria like 'UNSEEN' or 'RECENT'
+  Future<Response<SortImapResult>> sortMessages(String sortCriteria,
+      [String searchCriteria = 'ALL', String charset = 'UTF-8']) {
+    var cmd = Command('SORT ($sortCriteria) $charset $searchCriteria');
+    var parser = SortParser();
+    return sendCommand<SortImapResult>(cmd, parser);
+  }
+
+  /// Sorts messages by the given criteria
+  ///
+  /// [sortCriteria] the criteria used for sorting the results like 'ARRIVAL' or 'SUBJECT'
+  /// [charset] the charset used for the searching criteria
+  /// [searchCriteria] the criteria like 'UNSEEN' or 'RECENT'
+  Future<Response<SortImapResult>> uidSortMessages(String sortCriteria,
+      [String searchCriteria = 'ALL', String charset = 'UTF-8']) {
+    var cmd = Command('UID SORT ($sortCriteria) $charset $searchCriteria');
+    var parser = SortParser();
+    return sendCommand<SortImapResult>(cmd, parser);
+  }
+
+  /// OPERATIONS
+
   String nextId() {
     var id = _lastUsedCommandId++;
     return 'a$id';
