@@ -1160,8 +1160,8 @@ class ImapClient {
   ///
   /// Spefify the name with [path]
   Future<Response<Mailbox>> createMailbox(String path) async {
-    path = _encodeMailboxPath(path);
-    var cmd = Command('CREATE $path');
+    var encodedPath = _encodeMailboxPath(path);
+    var cmd = Command('CREATE $encodedPath');
     var response = await sendCommand<Mailbox>(cmd, null);
     if (response.isOkStatus) {
       var mailboxesResponse = await listMailboxes(path: path);
