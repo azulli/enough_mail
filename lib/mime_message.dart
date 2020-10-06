@@ -734,7 +734,7 @@ class MimeMessage extends MimePart {
         // this mime message is not fully loaded
         return null;
       }
-      parent = parent.parts[id == 0 ? 0 : id - 1];
+      parent = id == 0 ? parent : parent.parts[id - 1];
     }
     return parent;
   }
