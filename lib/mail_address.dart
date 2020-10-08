@@ -57,12 +57,16 @@ class MailAddress extends JsonSerializable {
   }
 
   void write(StringBuffer buffer) {
-    buffer
-      ..write('"')
-      ..write(personalName)
-      ..write('" <')
-      ..write(email)
-      ..write('>');
+    if (personalName == null) {
+      buffer.write(email);
+    } else {
+      buffer
+        ..write('"')
+        ..write(personalName)
+        ..write('" <')
+        ..write(email)
+        ..write('>');
+    }
   }
 
   /// Searches the [searchForList] addresses in the [searchInList] list.
