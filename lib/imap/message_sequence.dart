@@ -120,6 +120,12 @@ class MessageSequence {
     }
   }
 
+  /// Adds the specified IDs
+  void addList(List<int> ids) {
+    _ids.addAll(ids);
+    _text = null;
+  }
+
   /// Convenience method for getting the sequence for a single [id].
   /// Optionally specify the if the ID is a UID with [isUid], defaults to false.
   static MessageSequence fromId(int id, {bool isUid}) {
@@ -183,6 +189,13 @@ class MessageSequence {
   static MessageSequence fromAll() {
     var sequence = MessageSequence();
     sequence.addAll();
+    return sequence;
+  }
+
+  /// Convenience method for getting the sequence from a list of message UIDs.
+  static MessageSequence fromUidList(List<int> list) {
+    var sequence = MessageSequence(isUidSequence: true);
+    sequence.addList(list);
     return sequence;
   }
 
