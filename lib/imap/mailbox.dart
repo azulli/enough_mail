@@ -54,6 +54,9 @@ class Mailbox {
   List<String> messageFlags;
   List<String> permanentMessageFlags;
 
+  /// Extended data map when dealing with LIST-EXTENDED results
+  Map<String, List<String>> extendedData = {};
+
   /// This is set to false in case the server supports CONDSTORE but no mod sequence for this mailbox
   bool hasModSequence;
 

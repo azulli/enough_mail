@@ -1,19 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:enough_mail/enough_mail.dart';
+import 'package:enough_mail/imap/mailbox.dart';
 import 'package:enough_mail/imap/message_sequence.dart';
 import 'package:enough_mail/imap/metadata.dart';
+import 'package:enough_mail/imap/response.dart';
+import 'package:enough_mail/mime_message.dart';
+import 'package:enough_mail/src/imap/all_parsers.dart';
+import 'package:enough_mail/src/imap/capability_parser.dart';
+import 'package:enough_mail/src/imap/command.dart';
+import 'package:enough_mail/src/imap/imap_response.dart';
+import 'package:enough_mail/src/imap/imap_response_reader.dart';
 import 'package:enough_mail/src/imap/quota_parser.dart';
 import 'package:enough_mail/src/imap/response_parser.dart';
 import 'package:event_bus/event_bus.dart';
-import 'package:enough_mail/imap/mailbox.dart';
-import 'package:enough_mail/mime_message.dart';
-import 'package:enough_mail/imap/response.dart';
-import 'package:enough_mail/src/imap/capability_parser.dart';
-import 'package:enough_mail/src/imap/command.dart';
-import 'package:enough_mail/src/imap/all_parsers.dart';
-import 'package:enough_mail/src/imap/imap_response.dart';
-import 'package:enough_mail/src/imap/imap_response_reader.dart';
 
 import 'imap_events.dart';
 
@@ -694,17 +695,29 @@ class ImapClient {
   ///
   /// The [path] default to "", meaning the currently selected mailbox, if there is none selected, then the root is used.
   /// When [recursive] is true, then all submailboxes are also listed.
+  /// When specified, [mailboxPatterns] overrides the [recursive] options and provides a list of mailbox patterns to include.
+  /// The [selectionOptions] allows extened options to be supplied to the command.
+  /// The [returnOptions] lists the extra results that should be returned by the extended list enabled servers.
   /// The LIST command will set the [serverInfo.pathSeparator] as a side-effect
   Future<Response<List<Mailbox>>> listMailboxes(
-      {String path = '""', bool recursive = false}) {
+      {String path = '""',
+      bool recursive = false,
+      List<String> mailboxPatterns,
+      List<String> selectionOptions,
+      List<ReturnOption> returnOptions}) {
     return listMailboxesByReferenceAndName(
-        path, (recursive ? '*' : '%')); // list all folders in that path
+        path,
+        (recursive ? '*' : '%'),
+        mailboxPatterns,
+        selectionOptions,
+        returnOptions); // list all folders in that path
   }
 
-  String _encodeMailboxPath(String path) {
+  String _encodeMailboxPath(String path, [bool alwaysQuote = false]) {
     var encodedPath =
         (serverInfo.isEnabled('UTF8=ACCEPT')) ? path : Mailbox.encode(path);
-    if (encodedPath.contains(' ')) {
+    if (encodedPath.contains(' ') ||
+        (alwaysQuote && !encodedPath.startsWith('"'))) {
       encodedPath = '"$encodedPath"';
     }
     return encodedPath;
@@ -712,13 +725,37 @@ class ImapClient {
 
   /// lists all mailboxes in the path [referenceName] that match the given [mailboxName] that can contain wildcards.
   ///
+  /// If the server exposes the LIST-STATUS capability, a list of attributes can be provided with [returnStatuses].
   /// The LIST command will set the [serverInfo.pathSeparator] as a side-effect
   Future<Response<List<Mailbox>>> listMailboxesByReferenceAndName(
-      String referenceName, String mailboxName) {
-    referenceName = _encodeMailboxPath(referenceName);
-    mailboxName = _encodeMailboxPath(mailboxName);
-    var cmd = Command('LIST $referenceName $mailboxName');
-    var parser = ListParser(serverInfo);
+      String referenceName, String mailboxName,
+      [List<String> mailboxPatterns,
+      List<String> selectionOptions,
+      List<ReturnOption> returnOptions]) {
+    var hasReturnOptions = returnOptions?.isNotEmpty ?? false;
+    referenceName = _encodeMailboxPath(referenceName, true);
+    var buffer = StringBuffer()
+      ..write('LIST')
+      ..write(' ')
+      ..write(referenceName);
+    if (selectionOptions?.isNotEmpty ?? false) {
+      buffer..write(' (')..write(selectionOptions.join(' '))..write(')');
+    }
+    if (mailboxPatterns?.isEmpty ?? true) {
+      buffer..write(' ')..write(_encodeMailboxPath(mailboxName, true));
+    } else {
+      buffer
+        ..write(' (')
+        ..write(
+            mailboxPatterns.map((e) => _encodeMailboxPath(e, true)).join(' '))
+        ..write(')');
+    }
+    if (returnOptions != null && returnOptions.isNotEmpty) {
+      buffer..write(' RETURN (')..write(returnOptions.join(' '))..write(')');
+    }
+
+    var cmd = Command(buffer.toString());
+    var parser = ListParser(serverInfo, hasReturnOptions: hasReturnOptions);
     return sendCommand<List<Mailbox>>(cmd, parser);
   }
 
