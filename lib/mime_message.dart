@@ -129,8 +129,11 @@ class MimePart {
   }
 
   /// Adds the matching disposition header with the specified [disposition] of this part and this children parts to the [result]
-  void collectContentInfo(ContentDisposition disposition,
-      List<ContentInfo> result, String fetchId) {
+  ///
+  /// Disable [includeNestedMessages] to skip the elements included in rfc822 message parts
+  void collectContentInfo(
+      ContentDisposition disposition, List<ContentInfo> result, String fetchId,
+      [bool includeNestedMessages = true]) {
     var header = getHeaderContentDisposition();
     if (header?.disposition == disposition) {
       var info = ContentInfo()
@@ -139,11 +142,17 @@ class MimePart {
         ..fetchId = fetchId ?? '1';
       result.add(info);
     }
-    if (parts?.isNotEmpty ?? false) {
-      for (var i = 0; i < parts.length; i++) {
-        var part = parts[i];
-        part.collectContentInfo(disposition, result,
-            fetchId != null ? '$fetchId.${i + 1}' : '${i + 1}');
+    if (includeNestedMessages ||
+        getHeaderContentType().mediaType.sub != MediaSubtype.messageRfc822) {
+      if (parts?.isNotEmpty ?? false) {
+        for (var i = 0; i < parts.length; i++) {
+          var part = parts[i];
+          part.collectContentInfo(
+              disposition,
+              result,
+              fetchId != null ? '$fetchId.${i + 1}' : '${i + 1}',
+              includeNestedMessages);
+        }
       }
     }
   }
@@ -677,13 +686,15 @@ class MimeMessage extends MimePart {
   /// By default the content info with `ContentDisposition.attachment` are retrieved.
   /// Typically this used to list all attachments of a message.
   /// Note that either the message contents (`BODY[]`) or the `BODYSTRUCTURE` is required to reliably list all matching content elements.
+  /// Disabling [includeNestedMessages] option avoid polluting the result with the attachments of rfc822 nested parts
   List<ContentInfo> findContentInfo(
-      {ContentDisposition disposition = ContentDisposition.attachment}) {
+      {ContentDisposition disposition = ContentDisposition.attachment,
+      bool includeNestedMessages = true}) {
     var result = <ContentInfo>[];
     if (body != null) {
-      body.collectContentInfo(disposition, result);
+      body.collectContentInfo(disposition, result, includeNestedMessages);
     } else if (parts?.isNotEmpty ?? false) {
-      collectContentInfo(disposition, result, null);
+      collectContentInfo(disposition, result, null, includeNestedMessages);
     }
     return result;
   }
@@ -1063,8 +1074,11 @@ class BodyPart {
   }
 
   /// Adds the matching disposition header with the specified [disposition] of this part and this children parts to the [result]
+  ///
+  /// Disable [includeNestedMessages] to skip the elements included in rfc822 message parts
   void collectContentInfo(
-      ContentDisposition disposition, List<ContentInfo> result) {
+      ContentDisposition disposition, List<ContentInfo> result,
+      [bool includeNestedMessages = true]) {
     if (contentDisposition?.disposition == disposition) {
       var info = ContentInfo()
         ..contentDisposition = contentDisposition
@@ -1072,9 +1086,12 @@ class BodyPart {
         ..fetchId = fetchId;
       result.add(info);
     }
-    if (parts?.isNotEmpty ?? false) {
-      for (var part in parts) {
-        part.collectContentInfo(disposition, result);
+    if (includeNestedMessages ||
+        contentType.mediaType.sub != MediaSubtype.messageRfc822) {
+      if (parts?.isNotEmpty ?? false) {
+        for (var part in parts) {
+          part.collectContentInfo(disposition, result, includeNestedMessages);
+        }
       }
     }
   }
