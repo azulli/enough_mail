@@ -131,11 +131,12 @@ class MimePart {
   /// Adds the matching disposition header with the specified [disposition] of this part and this children parts to the [result]
   ///
   /// Disable [includeNestedMessages] to skip the elements included in rfc822 message parts
+  /// Set the [direct] flag for edge cases, like when called directly on a rfc822 MimePart.
   void collectContentInfo(
       ContentDisposition disposition, List<ContentInfo> result, String fetchId,
-      [bool includeNestedMessages = true]) {
+      [bool includeNestedMessages = true, bool direct = false]) {
     var header = getHeaderContentDisposition();
-    if (header?.disposition == disposition) {
+    if (header?.disposition == disposition && !direct) {
       var info = ContentInfo()
         ..contentDisposition = header
         ..contentType = getHeaderContentType()
@@ -143,7 +144,8 @@ class MimePart {
       result.add(info);
     }
     if (includeNestedMessages ||
-        getHeaderContentType().mediaType.sub != MediaSubtype.messageRfc822) {
+        getHeaderContentType().mediaType.sub != MediaSubtype.messageRfc822 ||
+        direct) {
       if (parts?.isNotEmpty ?? false) {
         for (var i = 0; i < parts.length; i++) {
           var part = parts[i];
@@ -1078,8 +1080,8 @@ class BodyPart {
   /// Disable [includeNestedMessages] to skip the elements included in rfc822 message parts
   void collectContentInfo(
       ContentDisposition disposition, List<ContentInfo> result,
-      [bool includeNestedMessages = true]) {
-    if (contentDisposition?.disposition == disposition) {
+      [bool includeNestedMessages = true, bool direct = false]) {
+    if (contentDisposition?.disposition == disposition && !direct) {
       var info = ContentInfo()
         ..contentDisposition = contentDisposition
         ..contentType = contentType
@@ -1087,7 +1089,8 @@ class BodyPart {
       result.add(info);
     }
     if (includeNestedMessages ||
-        contentType.mediaType.sub != MediaSubtype.messageRfc822) {
+        contentType.mediaType.sub != MediaSubtype.messageRfc822 ||
+        direct) {
       if (parts?.isNotEmpty ?? false) {
         for (var part in parts) {
           part.collectContentInfo(disposition, result, includeNestedMessages);
