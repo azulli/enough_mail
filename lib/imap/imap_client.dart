@@ -734,13 +734,11 @@ class ImapClient {
       List<ReturnOption> returnOptions]) {
     var hasReturnOptions = returnOptions?.isNotEmpty ?? false;
     referenceName = _encodeMailboxPath(referenceName, true);
-    var buffer = StringBuffer()
-      ..write('LIST')
-      ..write(' ')
-      ..write(referenceName);
+    var buffer = StringBuffer('LIST');
     if (selectionOptions?.isNotEmpty ?? false) {
       buffer..write(' (')..write(selectionOptions.join(' '))..write(')');
     }
+    buffer..write(' ')..write(referenceName);
     if (mailboxPatterns?.isEmpty ?? true) {
       buffer..write(' ')..write(_encodeMailboxPath(mailboxName, true));
     } else {
