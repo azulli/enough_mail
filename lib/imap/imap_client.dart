@@ -703,7 +703,7 @@ class ImapClient {
       {String path = '""',
       bool recursive = false,
       List<String> mailboxPatterns,
-      List<String> selectionOptions,
+      List<SelectionOption> selectionOptions,
       List<ReturnOption> returnOptions}) {
     return listMailboxesByReferenceAndName(
         path,
@@ -730,13 +730,16 @@ class ImapClient {
   Future<Response<List<Mailbox>>> listMailboxesByReferenceAndName(
       String referenceName, String mailboxName,
       [List<String> mailboxPatterns,
-      List<String> selectionOptions,
+      List<SelectionOption> selectionOptions,
       List<ReturnOption> returnOptions]) {
     var hasReturnOptions = returnOptions?.isNotEmpty ?? false;
     referenceName = _encodeMailboxPath(referenceName, true);
     var buffer = StringBuffer('LIST');
     if (selectionOptions?.isNotEmpty ?? false) {
-      buffer..write(' (')..write(selectionOptions.join(' '))..write(')');
+      buffer
+        ..write(' (')
+        ..write(selectionOptions.map((e) => e.value()).join(' '))
+        ..write(')');
     }
     buffer..write(' ')..write(referenceName);
     if (mailboxPatterns?.isEmpty ?? true) {
