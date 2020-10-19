@@ -16,6 +16,9 @@ class MessageSequence {
   bool _isAllAdded = false;
   String _text;
 
+  bool _isNilSequence = false;
+  bool get isNil => _isNilSequence;
+
   /// Creates a new message sequence.
   /// Optionally specify [isUidSequence] in case this is a sequence based on UIDs.
   MessageSequence({this.isUidSequence});
@@ -202,31 +205,35 @@ class MessageSequence {
   static MessageSequence parse(String text, {bool isUidSequence}) {
     var sequence = MessageSequence(isUidSequence: isUidSequence);
     var chunks = text.split(',');
-    for (var chunk in chunks) {
-      var id = int.tryParse(chunk);
-      if (id != null) {
-        sequence.add(id);
-      } else if (chunk == '*') {
-        sequence.addLast();
-      } else if (chunk.endsWith(':*')) {
-        var idText = chunk.substring(0, chunk.length - ':*'.length);
-        var id = int.tryParse(idText);
+    if (chunks[0] == 'NIL') {
+      sequence._isNilSequence = true;
+    } else {
+      for (var chunk in chunks) {
+        var id = int.tryParse(chunk);
         if (id != null) {
-          sequence.addRangeToLast(id);
+          sequence.add(id);
+        } else if (chunk == '*') {
+          sequence.addLast();
+        } else if (chunk.endsWith(':*')) {
+          var idText = chunk.substring(0, chunk.length - ':*'.length);
+          var id = int.tryParse(idText);
+          if (id != null) {
+            sequence.addRangeToLast(id);
+          } else {
+            throw StateError('expect id in $idText for $chunk in $text');
+          }
         } else {
-          throw StateError('expect id in $idText for $chunk in $text');
+          var colonIndex = chunk.indexOf(':');
+          if (colonIndex == -1) {
+            throw StateError('expect colon in  $chunk / $text');
+          }
+          var start = int.tryParse(chunk.substring(0, colonIndex));
+          var end = int.tryParse(chunk.substring(colonIndex + 1));
+          if (start == null || end == null) {
+            throw StateError('expect range in  $chunk / $text');
+          }
+          sequence.addRange(start, end);
         }
-      } else {
-        var colonIndex = chunk.indexOf(':');
-        if (colonIndex == -1) {
-          throw StateError('expect colon in  $chunk / $text');
-        }
-        var start = int.tryParse(chunk.substring(0, colonIndex));
-        var end = int.tryParse(chunk.substring(colonIndex + 1));
-        if (start == null || end == null) {
-          throw StateError('expect range in  $chunk / $text');
-        }
-        sequence.addRange(start, end);
       }
     }
     return sequence;
@@ -244,6 +251,8 @@ class MessageSequence {
     if (exists == null && containsLast()) {
       throw StateError(
           'Unable to list sequence when * is part of the list and the \'exists\' parameter is not specified.');
+    } else if (_isNilSequence) {
+      throw StateError('Unable to list non existent sequence.');
     }
     var entries = List<int>.from(_ids);
     entries..sort();
@@ -290,7 +299,9 @@ class MessageSequence {
 
   @override
   String toString() {
-    if (_text != null) {
+    if (_isNilSequence) {
+      return 'NIL';
+    } else if (_text != null) {
       return _text;
     }
     var buffer = StringBuffer();
@@ -300,7 +311,10 @@ class MessageSequence {
 
   /// Renders this message sequence into the specified StringBuffer [buffer].
   void render(StringBuffer buffer) {
-    if (_text != null) {
+    if (_isNilSequence) {
+      buffer.write('NIL');
+      return;
+    } else if (_text != null) {
       buffer.write(_text);
       return;
     }

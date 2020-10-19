@@ -5,7 +5,10 @@ class ReturnOption {
   /// Optional list of return option parameters.
   final List<String> _parameters;
 
-  ReturnOption(this.name, [this._parameters]);
+  /// Optional single return option parameter.
+  final String _parameter;
+
+  ReturnOption(this.name, [this._parameters, this._parameter]);
 
   ReturnOption.specialUse() : this('SPECIAL-USE');
 
@@ -30,6 +33,15 @@ class ReturnOption {
   /// Returns the match count of the search request.
   ReturnOption.count() : this('COUNT');
 
+  /// Indicates that the search criteria are likey to be used in subsequent commands.
+  // TODO ReturnOption.context() : this('CONTEXT');
+
+  /// Requests unsolicited updates of the given search.
+  // TODO ReturnOption.update() : this('UPDATE');
+
+  /// Returns a view of the search results in the given x:y range set.
+  ReturnOption.partial(String rangeSet) : this('PARTIAL', null, rangeSet);
+
   void add(String parameter) {
     _parameters?.add(parameter);
   }
@@ -44,7 +56,9 @@ class ReturnOption {
   @override
   String toString() {
     final result = StringBuffer(name);
-    if (_parameters != null && _parameters.isNotEmpty) {
+    if (_parameter != null) {
+      result..write(' ')..write(_parameter);
+    } else if (_parameters != null && _parameters.isNotEmpty) {
       result..write(' (')..write(_parameters.join(' '))..write(')');
     }
     return result.toString();
