@@ -77,6 +77,10 @@ class SearchImapResult {
   /// A list of message IDs
   List<int> ids;
 
+  /// The highest modification sequence in the searched messages
+  /// The modification sequence can only be returned when the MODSEQ search criteria has been used and when the server supports the CONDSTORE capability.
+  int highestModSequence;
+
   /// Signals an extended search result
   bool isExtended;
 
@@ -94,10 +98,6 @@ class SearchImapResult {
 
   /// Sequence set of all the found message IDs or UIDs
   MessageSequence all;
-
-  /// The highest modification sequence in the searched messages
-  /// The modification sequence can only be returned when the MODSEQ search criteria has been used and when the server supports the CONDSTORE capability.
-  int highestModSequence;
 }
 
 /// Result for extended SEARCH and UID SEARCH operations
@@ -155,4 +155,22 @@ class SortImapResult {
   /// The highest modification sequence in the searched messages
   /// The modification sequeqnce can only be returned when the MODSEQ search criteria has been used and when the server supports the CONDSTORE capability.
   int highestModSequence;
+
+  /// Signals an extended search result
+  bool isExtended;
+
+  /// Result tag
+  String tag;
+
+  /// Minimum found message ID or UID
+  int min;
+
+  /// Maximum found message ID or UID
+  int max;
+
+  /// Matches count
+  int count;
+
+  /// Sequence set of all the found message IDs or UIDs
+  MessageSequence all;
 }

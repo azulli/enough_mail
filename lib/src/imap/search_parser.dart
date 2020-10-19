@@ -42,12 +42,9 @@ class SearchParser extends ResponseParser<SearchImapResult> {
     var details = imapResponse.parseText;
     if (details.startsWith('SEARCH ')) {
       return _parseDetails(details);
-    } else if (details.startsWith('ESEARCH ') ||
-        details.startsWith('UID ESEARCH ')) {
+    } else if (details.startsWith('ESEARCH ')) {
       return _parseExtended(details);
-    } else if (details == 'SEARCH' ||
-        details == 'ESEARCH' ||
-        details == 'UID ESEARCH') {
+    } else if (details == 'SEARCH' || details == 'ESEARCH') {
       return true;
     } else {
       return super.parseUntagged(imapResponse, response);
@@ -76,10 +73,6 @@ class SearchParser extends ResponseParser<SearchImapResult> {
   bool _parseExtended(String details) {
     isExtended = true;
     var hasUid = false;
-    if (details.startsWith('UID ')) {
-      hasUid = true;
-      details.substring(4);
-    }
     var listEntries = parseListEntries(details, 'ESEARCH '.length, null);
     for (var i = 0; i < listEntries.length; i++) {
       var entry = listEntries[i];
@@ -87,6 +80,8 @@ class SearchParser extends ResponseParser<SearchImapResult> {
         i++;
         entry = listEntries[i];
         tag = entry.substring(0, entry.length - 1);
+      } else if (entry == 'UID') {
+        hasUid = true;
       } else if (entry == 'MIN') {
         i++;
         min = int.tryParse(listEntries[i]);
