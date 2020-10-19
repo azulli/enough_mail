@@ -876,6 +876,15 @@ class ImapClient {
     return sendCommand(cmd, null);
   }
 
+  /// Closes the currently selected mailbox without triggering the expunge events.
+  ///
+  /// Compare [selectMailbox]
+  Future<Response> unselectMailbox() {
+    var cmd = Command('UNSELECT');
+    _selectedMailbox = null;
+    return sendCommand(cmd, null);
+  }
+
   /// Searches messages by the given criteria
   ///
   /// [searchCriteria] the criteria like 'UNSEEN' or 'RECENT'
