@@ -128,22 +128,32 @@ class ListParser extends ResponseParser<List<Mailbox>> {
       var extraInfoStartIndex = listDetails.indexOf('(');
       var extraInfoEndIndex = listDetails.lastIndexOf(')');
       if (extraInfoEndIndex != -1 && extraInfoStartIndex < extraInfoEndIndex) {
-        var extraInfo = listDetails.substring(
-            extraInfoStartIndex + 1, extraInfoEndIndex - 1);
+        var extraInfo =
+            listDetails.substring(extraInfoStartIndex + 1, extraInfoEndIndex);
         listDetails = listDetails.substring(0, extraInfoStartIndex - 1);
         // Convert to loop if more extended data results will be present
-        if (extraInfo.startsWith('"${ExtendedData.childinfo}"')) {
+        // FIXME Address when multiple extended data list are returned by non conforming servers
+        //while (extraInfo.isNotEmpty) {
+        if (extraInfo.startsWith('${ExtendedData.childinfo}') ||
+            extraInfo.startsWith('"${ExtendedData.childinfo}"')) {
+          if (!box.extendedData.containsKey(ExtendedData.childinfo)) {
+            box.extendedData[ExtendedData.childinfo] = [];
+          }
           var optsStartIndex = extraInfo.indexOf('(');
           var optsEndIndex = extraInfo.indexOf(')');
           if (optsStartIndex != -1 && optsStartIndex < optsEndIndex) {
             var opts = extraInfo
-                .substring(optsStartIndex + 1, optsEndIndex - 1)
+                .substring(optsStartIndex + 1, optsEndIndex)
                 .split(' ')
-                .map((e) => e.substring(1, e.length - 1))
-                .toList(growable: false);
-            box.extendedData[ExtendedData.childinfo] = opts;
+                .map((e) => e.substring(1, e.length - 1));
+            box.extendedData[ExtendedData.childinfo].addAll(opts);
           }
+          /* if (optsEndIndex + 1 == extraInfo.length) {
+              break;
+            }
+            extraInfo = extraInfo.substring(optsEndIndex + 2); */
         }
+        // }
       }
       if (listDetails.startsWith('"')) {
         var endOfPathSeparatorIndex = listDetails.indexOf('"', 1);

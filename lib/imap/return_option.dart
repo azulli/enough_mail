@@ -1,6 +1,8 @@
 /// Return option definition for LIST commands.
 class ReturnOption {
   final String name;
+
+  /// Optional list of return option parameters.
   final List<String> _parameters;
 
   ReturnOption(this.name, [this._parameters]);
@@ -15,6 +17,18 @@ class ReturnOption {
 
   /// Returns given STATUS informations of all matching mailbox names.
   ReturnOption.status([List<String> parameters]) : this('STATUS', parameters);
+
+  /// Returns the minimum message id or UID that satisfies the search parameters.
+  ReturnOption.min() : this('MIN');
+
+  /// Return the maximum message id or UID that satisfies the search parameters.
+  ReturnOption.max() : this('MAX');
+
+  /// Returns all the message ids or UIDs that satisfies the search parameters.
+  ReturnOption.all() : this('ALL');
+
+  /// Returns the match count of the search request.
+  ReturnOption.count() : this('COUNT');
 
   void add(String parameter) {
     _parameters?.add(parameter);

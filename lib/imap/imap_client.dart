@@ -879,20 +879,32 @@ class ImapClient {
   /// Searches messages by the given criteria
   ///
   /// [searchCriteria] the criteria like 'UNSEEN' or 'RECENT'
+  /// Passing [returnOptions] causes the execution of an extended search
   Future<Response<SearchImapResult>> searchMessages(
-      [String searchCriteria = 'UNSEEN']) {
-    var cmd = Command('SEARCH $searchCriteria');
-    var parser = SearchParser();
+      [String searchCriteria = 'UNSEEN', List<ReturnOption> returnOptions]) {
+    var buffer = StringBuffer('SEARCH ');
+    if (returnOptions != null) {
+      buffer..write('RETURN (')..write(returnOptions.join(' '))..write(') ');
+    }
+    buffer.write(searchCriteria);
+    var cmd = Command(buffer.toString());
+    var parser = SearchParser(returnOptions != null);
     return sendCommand<SearchImapResult>(cmd, parser);
   }
 
   /// Searches messages by the given criteria
   ///
   /// [searchCriteria] the criteria like 'UNSEEN' or 'RECENT'
+  /// Passing [returnOptions] causes the execution of an extended search
   Future<Response<SearchImapResult>> uidSearchMessages(
-      [String searchCriteria = 'UNSEEN']) {
-    var cmd = Command('UID SEARCH $searchCriteria');
-    var parser = SearchParser();
+      [String searchCriteria = 'UNSEEN', List<ReturnOption> returnOptions]) {
+    var buffer = StringBuffer('UID SEARCH ');
+    if (returnOptions != null) {
+      buffer..write('RETURN (')..write(returnOptions.join(' '))..write(') ');
+    }
+    buffer.write(searchCriteria);
+    var cmd = Command(buffer.toString());
+    var parser = SearchParser(returnOptions != null);
     return sendCommand<SearchImapResult>(cmd, parser);
   }
 
