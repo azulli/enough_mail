@@ -6,6 +6,9 @@ class MessageSequence {
   /// True when this sequence is consisting of UIDs
   final bool isUidSequence;
 
+  /// True when this sequence represents a previously saved result
+  final bool isSavedSequence;
+
   /// The length of this sequence - only valid when there is no range to last involved.
   int get length => toList().length;
 
@@ -21,10 +24,13 @@ class MessageSequence {
 
   /// Creates a new message sequence.
   /// Optionally specify [isUidSequence] in case this is a sequence based on UIDs.
-  MessageSequence({this.isUidSequence});
+  MessageSequence({this.isUidSequence, this.isSavedSequence = false});
 
   /// Adds the sequence ID of the specified [message].
   void addSequenceId(MimeMessage message) {
+    if (isSavedSequence) {
+      throw StateError('cannot add sequence IDs to a saved sequence reference');
+    }
     var id = message.sequenceId;
     if (id == null) {
       throw StateError('no sequence ID found in message');
@@ -34,6 +40,10 @@ class MessageSequence {
 
   /// Removes the sequence ID of the specified [message].
   void removeSequenceId(MimeMessage message) {
+    if (isSavedSequence) {
+      throw StateError(
+          'cannot remove sequence IDs from a saved sequence reference');
+    }
     var id = message.sequenceId;
     if (id == null) {
       throw StateError('no sequence ID found in message');
@@ -43,6 +53,9 @@ class MessageSequence {
 
   /// Adds the UID of the specified [message].
   void addUid(MimeMessage message) {
+    if (isSavedSequence) {
+      throw StateError('cannot add UIDs to a saved sequence reference');
+    }
     var uid = message.uid;
     if (uid == null) {
       throw StateError('no UID found in message');
@@ -52,6 +65,9 @@ class MessageSequence {
 
   /// Remoces the UID of the specified [message].
   void removeUid(MimeMessage message) {
+    if (isSavedSequence) {
+      throw StateError('cannot remove UIDs from a saved sequence reference');
+    }
     var uid = message.uid;
     if (uid == null) {
       throw StateError('no UID found in message');
@@ -61,17 +77,28 @@ class MessageSequence {
 
   /// Adds the specified ID
   void add(int id) {
+    if (isSavedSequence) {
+      throw StateError('cannot add sequence ID to a saved sequence reference');
+    }
     _ids.add(id);
     _text = null;
   }
 
   void remove(int id) {
+    if (isSavedSequence) {
+      throw StateError(
+          'cannot remove sequence ID from a saved sequence reference');
+    }
     _ids.remove(id);
     _text = null;
   }
 
   /// Adds all messages between [start] and [end] inclusive.
   void addRange(int start, int end) {
+    if (isSavedSequence) {
+      throw StateError(
+          'cannot add sequence ID range to a saved sequence reference');
+    }
     // start:end
     if (start == end) {
       add(start);
@@ -88,6 +115,9 @@ class MessageSequence {
 
   /// Adds a range from the specified [start] ID towards to the last ('*') element.
   void addRangeToLast(int start) {
+    if (isSavedSequence) {
+      throw StateError('cannot add id range to a saved sequence reference');
+    }
     // start:*
     var wasEmpty = isEmpty();
     _idsWithRangeToLast.add(start);
@@ -100,6 +130,9 @@ class MessageSequence {
 
   /// Adds the last element, which is alway '*'.
   void addLast() {
+    if (isSavedSequence) {
+      throw StateError('cannot update a saved sequence reference');
+    }
     // *
     var wasEmpty = isEmpty();
     _isLastAdded = true;
@@ -113,6 +146,9 @@ class MessageSequence {
   /// Adds all messages
   /// This results into '1:*'.
   void addAll() {
+    if (isSavedSequence) {
+      throw StateError('cannot replace a saved sequence reference');
+    }
     // 1:*
     var wasEmpty = isEmpty();
     _isAllAdded = true;
@@ -125,6 +161,9 @@ class MessageSequence {
 
   /// Adds the specified IDs
   void addList(List<int> ids) {
+    if (isSavedSequence) {
+      throw StateError('cannot add list of ids to a saved sequence reference');
+    }
     _ids.addAll(ids);
     _text = null;
   }
@@ -239,6 +278,12 @@ class MessageSequence {
     return sequence;
   }
 
+  static MessageSequence saved() {
+    var sequence = MessageSequence(isSavedSequence: true);
+    sequence._text = r'$';
+    return sequence;
+  }
+
   /// Checks if this sequence contains the last indicator in some form - '*'
   bool containsLast() {
     return _isLastAdded || _isAllAdded || _idsWithRangeToLast.isNotEmpty;
@@ -253,6 +298,8 @@ class MessageSequence {
           'Unable to list sequence when * is part of the list and the \'exists\' parameter is not specified.');
     } else if (_isNilSequence) {
       throw StateError('Unable to list non existent sequence.');
+    } else if (isSavedSequence) {
+      throw StateError('Unable to list a saved sequence reference.');
     }
     var entries = List<int>.from(_ids);
     entries..sort();
@@ -281,20 +328,24 @@ class MessageSequence {
 
   /// Checks is this sequence has no elements
   bool isEmpty() {
-    return !_isLastAdded &&
-        !_isAllAdded &&
-        _ids.isEmpty &&
-        _idsWithRangeToLast.isEmpty &&
-        _idsWithRange.isEmpty;
+    return isSavedSequence
+        ? false
+        : !_isLastAdded &&
+            !_isAllAdded &&
+            _ids.isEmpty &&
+            _idsWithRangeToLast.isEmpty &&
+            _idsWithRange.isEmpty;
   }
 
   /// Checks is this sequence has at least one element
   bool isNotEmpty() {
-    return _isLastAdded ||
-        _isAllAdded ||
-        _ids.isNotEmpty ||
-        _idsWithRangeToLast.isNotEmpty ||
-        _idsWithRange.isNotEmpty;
+    return isSavedSequence
+        ? true
+        : _isLastAdded ||
+            _isAllAdded ||
+            _ids.isNotEmpty ||
+            _idsWithRangeToLast.isNotEmpty ||
+            _idsWithRange.isNotEmpty;
   }
 
   @override

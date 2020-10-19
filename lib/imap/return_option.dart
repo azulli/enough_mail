@@ -42,6 +42,8 @@ class ReturnOption {
   /// Returns a view of the search results in the given x:y range set.
   ReturnOption.partial(String rangeSet) : this('PARTIAL', null, rangeSet);
 
+  ReturnOption.save() : this('SAVE');
+
   void add(String parameter) {
     _parameters?.add(parameter);
   }
