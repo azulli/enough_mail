@@ -9,6 +9,9 @@ class MessageSequence {
   /// True when this sequence represents a previously saved result
   final bool isSavedSequence;
 
+  /// This flag prevents the sorting of the [_ids] list that voids any given ordering.
+  final bool dontReorder;
+
   /// The length of this sequence - only valid when there is no range to last involved.
   int get length => toList().length;
 
@@ -24,7 +27,10 @@ class MessageSequence {
 
   /// Creates a new message sequence.
   /// Optionally specify [isUidSequence] in case this is a sequence based on UIDs.
-  MessageSequence({this.isUidSequence, this.isSavedSequence = false});
+  MessageSequence(
+      {this.isUidSequence,
+      this.isSavedSequence = false,
+      this.dontReorder = false});
 
   /// Adds the sequence ID of the specified [message].
   void addSequenceId(MimeMessage message) {
@@ -235,8 +241,12 @@ class MessageSequence {
   }
 
   /// Convenience method for getting the sequence from a list of message UIDs.
-  static MessageSequence fromUidList(List<int> list) {
-    var sequence = MessageSequence(isUidSequence: true);
+  ///
+  /// For search results set [dontReorder] to true
+  static MessageSequence fromUidList(List<int> list,
+      [bool dontReorder = false]) {
+    var sequence =
+        MessageSequence(isUidSequence: true, dontReorder: dontReorder);
     sequence.addList(list);
     return sequence;
   }
@@ -301,6 +311,7 @@ class MessageSequence {
     } else if (isSavedSequence) {
       throw StateError('Unable to list a saved sequence reference.');
     }
+    if (dontReorder) return List<int>.from(_ids);
     var entries = List<int>.from(_ids);
     entries..sort();
     for (var start in _idsWithRange.keys) {
@@ -375,28 +386,32 @@ class MessageSequence {
     if (_ids.length == 1) {
       buffer.write(_ids[0]);
     } else {
-      _ids.sort();
-      int last;
-      int lastWritten;
-      for (var i = 0; i < _ids.length; i++) {
-        var current = _ids[i];
-        if (i == 0) {
-          lastWritten = current;
-          buffer.write(current);
-        } else if (current > last + 1) {
-          if (last != lastWritten) {
-            buffer..write(':')..write(last);
-          }
-          buffer..write(',')..write(current);
-          lastWritten = current;
-        } else if (i == _ids.length - 1) {
-          if (last == lastWritten) {
+      if (dontReorder) {
+        buffer.write(_ids.join(','));
+      } else {
+        _ids.sort();
+        int last;
+        int lastWritten;
+        for (var i = 0; i < _ids.length; i++) {
+          var current = _ids[i];
+          if (i == 0) {
+            lastWritten = current;
+            buffer.write(current);
+          } else if (current > last + 1) {
+            if (last != lastWritten) {
+              buffer..write(':')..write(last);
+            }
             buffer..write(',')..write(current);
-          } else {
-            buffer..write(':')..write(current);
+            lastWritten = current;
+          } else if (i == _ids.length - 1) {
+            if (last == lastWritten) {
+              buffer..write(',')..write(current);
+            } else {
+              buffer..write(':')..write(current);
+            }
           }
+          last = current;
         }
-        last = current;
       }
     }
     if (_idsWithRange.isNotEmpty) {
