@@ -14,10 +14,10 @@ class SearchParser extends ResponseParser<SearchImapResult> {
   int min;
   int max;
   int count;
-  MessageSequence all;
+
+  MessageSequence sequenceSet;
 
   String partialRange;
-  MessageSequence partial;
 
   SearchParser(this.isExtended);
 
@@ -33,9 +33,8 @@ class SearchParser extends ResponseParser<SearchImapResult> {
         ..min = min
         ..max = max
         ..count = count
-        ..all = all
-        ..partialRange = partialRange
-        ..partial = partial;
+        ..sequenceSet = sequenceSet
+        ..partialRange = partialRange;
       return result;
     }
     return null;
@@ -98,7 +97,8 @@ class SearchParser extends ResponseParser<SearchImapResult> {
         count = int.tryParse(listEntries[i]);
       } else if (entry == 'ALL') {
         i++;
-        all = MessageSequence.parse(listEntries[i], isUidSequence: hasUid);
+        sequenceSet =
+            MessageSequence.parse(listEntries[i], isUidSequence: hasUid);
       } else if (entry == 'MODSEQ') {
         i++;
         highestModSequence = int.tryParse(listEntries[i]);
@@ -106,9 +106,15 @@ class SearchParser extends ResponseParser<SearchImapResult> {
         i++;
         partialRange = listEntries[i].substring(1);
         i++;
-        partial = MessageSequence.parse(
+        sequenceSet = MessageSequence.parse(
             listEntries[i].substring(0, listEntries[i].length - 1));
       }
+    }
+    // Expands the sequence-set to the corresponding U/IDs list
+    if (sequenceSet != null &&
+        !sequenceSet.isNil &&
+        !sequenceSet.isSavedSequence) {
+      ids = sequenceSet.toList();
     }
     return true;
   }

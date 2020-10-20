@@ -97,15 +97,12 @@ class SearchImapResult {
   int count;
 
   /// Sequence set of all the found message IDs or UIDs
-  MessageSequence all;
+  MessageSequence sequenceSet;
 
   bool get isPartial => partialRange != null;
 
   /// Requested range of the partial result view.
   String partialRange;
-
-  /// Sequence set of the partial result view.
-  MessageSequence partial;
 }
 
 /// Result for extended SEARCH and UID SEARCH operations
@@ -179,14 +176,11 @@ class SortImapResult {
   /// Matches count
   int count;
 
-  /// Sequence set of all the found message IDs or UIDs
-  MessageSequence all;
+  /// Sequence set of the found message IDs or UIDs
+  MessageSequence sequenceSet;
 
   bool get isPartial => partialRange != null;
 
   /// Requested range of the partial result view.
   String partialRange;
-
-  /// Sequence set of the partial result view.
-  MessageSequence partial;
 }
