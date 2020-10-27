@@ -109,7 +109,8 @@ class SortParser extends ResponseParser<SortImapResult> {
         partialRange = listEntries[i].substring(1);
         i++;
         sequenceSet = MessageSequence.parse(
-            listEntries[i].substring(0, listEntries[i].length - 1));
+            listEntries[i].substring(0, listEntries[i].length - 1),
+            isUidSequence: hasUid);
       }
     }
     // Expands the sequence-set to the corresponding U/IDs list

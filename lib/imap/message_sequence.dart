@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:enough_mail/enough_mail.dart';
 
 /// Defines a list of message IDs.
@@ -9,15 +11,12 @@ class MessageSequence {
   /// True when this sequence represents a previously saved result
   final bool isSavedSequence;
 
-  /// This flag prevents the sorting of the [_ids] list that voids any given ordering.
-  final bool dontReorder;
-
   /// The length of this sequence - only valid when there is no range to last involved.
   int get length => toList().length;
 
   final List<int> _ids = <int>[];
-  final List<int> _idsWithRangeToLast = <int>[];
-  final Map<int, int> _idsWithRange = <int, int>{};
+  // final List<int> _idsWithRangeToLast = <int>[];
+  // final Map<int, int> _idsWithRange = <int, int>{};
   bool _isLastAdded = false;
   bool _isAllAdded = false;
   String _text;
@@ -25,12 +24,12 @@ class MessageSequence {
   bool _isNilSequence = false;
   bool get isNil => _isNilSequence;
 
+  final int STAR = 0;
+  final int RANGESTAR = -1;
+
   /// Creates a new message sequence.
   /// Optionally specify [isUidSequence] in case this is a sequence based on UIDs.
-  MessageSequence(
-      {this.isUidSequence,
-      this.isSavedSequence = false,
-      this.dontReorder = false});
+  MessageSequence({this.isUidSequence = false, this.isSavedSequence = false});
 
   /// Adds the sequence ID of the specified [message].
   void addSequenceId(MimeMessage message) {
@@ -104,34 +103,35 @@ class MessageSequence {
     if (isSavedSequence) {
       throw StateError(
           'cannot add sequence ID range to a saved sequence reference');
+    } else if (start == 0 || end == 0) {
+      throw StateError('sequence IDs must not be 0');
     }
     // start:end
     if (start == end) {
       add(start);
       return;
     }
-    var wasEmpty = isEmpty();
-    _idsWithRange[start] = end;
-    if (wasEmpty) {
-      _text = '$start:$end';
+    if (start < end) {
+      // Forward sequence (common, preferred)
+      _ids.addAll([for (int i = start; i <= end; i++) i]);
     } else {
-      _text = null;
+      // Reverse sequence (uncommon)
+      _ids.addAll([for (int i = end; i <= start; i++) i]);
     }
+    _text = isEmpty() ? '$start:$end' : null;
   }
 
   /// Adds a range from the specified [start] ID towards to the last ('*') element.
   void addRangeToLast(int start) {
     if (isSavedSequence) {
       throw StateError('cannot add id range to a saved sequence reference');
+    } else if (start == 0) {
+      throw StateError('sequence ID must not be 0');
     }
     // start:*
-    var wasEmpty = isEmpty();
-    _idsWithRangeToLast.add(start);
-    if (wasEmpty) {
-      _text = '$start:*';
-    } else {
-      _text = null;
-    }
+    _isLastAdded = true;
+    _ids.addAll([start, RANGESTAR]);
+    _text = isEmpty() ? '$start:*' : null;
   }
 
   /// Adds the last element, which is alway '*'.
@@ -139,14 +139,9 @@ class MessageSequence {
     if (isSavedSequence) {
       throw StateError('cannot update a saved sequence reference');
     }
-    // *
-    var wasEmpty = isEmpty();
     _isLastAdded = true;
-    if (wasEmpty) {
-      _text = '*';
-    } else {
-      _text = null;
-    }
+    _ids.add(STAR);
+    _text = isEmpty() ? '*' : null;
   }
 
   /// Adds all messages
@@ -156,19 +151,16 @@ class MessageSequence {
       throw StateError('cannot replace a saved sequence reference');
     }
     // 1:*
-    var wasEmpty = isEmpty();
     _isAllAdded = true;
-    if (wasEmpty) {
-      _text = '1:*';
-    } else {
-      _text = null;
-    }
+    _text = isEmpty() ? '1:*' : null;
   }
 
   /// Adds the specified IDs
   void addList(List<int> ids) {
     if (isSavedSequence) {
       throw StateError('cannot add list of ids to a saved sequence reference');
+    } else if (ids.contains(0)) {
+      throw StateError('cannot add list of ids containing 0');
     }
     _ids.addAll(ids);
     _text = null;
@@ -176,7 +168,7 @@ class MessageSequence {
 
   /// Convenience method for getting the sequence for a single [id].
   /// Optionally specify the if the ID is a UID with [isUid], defaults to false.
-  static MessageSequence fromId(int id, {bool isUid}) {
+  static MessageSequence fromId(int id, {bool isUid = false}) {
     var sequence = MessageSequence(isUidSequence: isUid);
     sequence.add(id);
     return sequence;
@@ -243,10 +235,8 @@ class MessageSequence {
   /// Convenience method for getting the sequence from a list of message UIDs.
   ///
   /// For search results set [dontReorder] to true
-  static MessageSequence fromUidList(List<int> list,
-      [bool dontReorder = false]) {
-    var sequence =
-        MessageSequence(isUidSequence: true, dontReorder: dontReorder);
+  static MessageSequence fromUidList(List<int> list) {
+    var sequence = MessageSequence(isUidSequence: true);
     sequence.addList(list);
     return sequence;
   }
@@ -296,7 +286,7 @@ class MessageSequence {
 
   /// Checks if this sequence contains the last indicator in some form - '*'
   bool containsLast() {
-    return _isLastAdded || _isAllAdded || _idsWithRangeToLast.isNotEmpty;
+    return _isLastAdded || _isAllAdded;
   }
 
   /// Lists all entries of this sequence.
@@ -311,7 +301,23 @@ class MessageSequence {
     } else if (isSavedSequence) {
       throw StateError('Unable to list a saved sequence reference.');
     }
-    if (dontReorder) return List<int>.from(_ids);
+    // Maybe we can prevent duplicates
+    var idset = LinkedHashSet<int>.identity();
+    // We use a for-loop because we must generate a sequence when reaching the STAR value
+    var index = 0;
+    var zeroloc = _ids.indexOf(RANGESTAR, index);
+    while (zeroloc > 0) {
+      idset.addAll(_ids.sublist(index, zeroloc));
+      idset.addAll([for (var x = idset.last + 1; x <= exists; x++) x]);
+      index = zeroloc + 1;
+      zeroloc = _ids.indexOf(RANGESTAR, index);
+    }
+    // No STAR found, add all remaining elements
+    if (index >= 0 && zeroloc == -1) {
+      idset.addAll(_ids.sublist(index));
+    }
+    return idset.map((e) => e == STAR ? exists : e).toList();
+    /* This don't work for sequence sets generated by SORT commands
     var entries = List<int>.from(_ids);
     entries..sort();
     for (var start in _idsWithRange.keys) {
@@ -335,35 +341,26 @@ class MessageSequence {
     }
     entries.sort();
     return entries;
+    */
   }
 
   /// Checks is this sequence has no elements
   bool isEmpty() {
     return isSavedSequence
         ? false
-        : !_isLastAdded &&
-            !_isAllAdded &&
-            _ids.isEmpty &&
-            _idsWithRangeToLast.isEmpty &&
-            _idsWithRange.isEmpty;
+        : !_isLastAdded && !_isAllAdded && !_isNilSequence && _ids.isEmpty;
   }
 
   /// Checks is this sequence has at least one element
   bool isNotEmpty() {
     return isSavedSequence
         ? true
-        : _isLastAdded ||
-            _isAllAdded ||
-            _ids.isNotEmpty ||
-            _idsWithRangeToLast.isNotEmpty ||
-            _idsWithRange.isNotEmpty;
+        : _isLastAdded || _isAllAdded || _ids.isNotEmpty;
   }
 
   @override
   String toString() {
-    if (_isNilSequence) {
-      return 'NIL';
-    } else if (_text != null) {
+    if (_text != null) {
       return _text;
     }
     var buffer = StringBuffer();
@@ -386,34 +383,50 @@ class MessageSequence {
     if (_ids.length == 1) {
       buffer.write(_ids[0]);
     } else {
-      if (dontReorder) {
-        buffer.write(_ids.join(','));
-      } else {
-        _ids.sort();
-        int last;
-        int lastWritten;
-        for (var i = 0; i < _ids.length; i++) {
-          var current = _ids[i];
-          if (i == 0) {
-            lastWritten = current;
-            buffer.write(current);
-          } else if (current > last + 1) {
-            if (last != lastWritten) {
-              buffer..write(':')..write(last);
-            }
-            buffer..write(',')..write(current);
-            lastWritten = current;
-          } else if (i == _ids.length - 1) {
-            if (last == lastWritten) {
-              buffer..write(',')..write(current);
-            } else {
-              buffer..write(':')..write(current);
-            }
+      var cache = 0;
+      for (var i = 0; i < _ids.length; i++) {
+        if (i == 0) {
+          buffer.write(_ids[i] == STAR ? '*' : _ids[i]);
+        } else if (_ids[i] == _ids[i - 1] + 1) {
+          cache = _ids[i];
+        } else {
+          if (cache > 0) {
+            buffer..write(':')..write(cache);
+            cache = 0;
           }
-          last = current;
+          if (_ids[i] == RANGESTAR) {
+            buffer..write(':')..write('*');
+          } else {
+            buffer..write(',')..write(_ids[i] == STAR ? '*' : _ids[i]);
+          }
         }
       }
+      /* This is a no-no for SORTed sequences
+      _ids.sort();
+      int last;
+      int lastWritten;
+      for (var i = 0; i < _ids.length; i++) {
+        var current = _ids[i];
+        if (i == 0) {
+          lastWritten = current;
+          buffer.write(current);
+        } else if (current > last + 1) {
+          if (last != lastWritten) {
+            buffer..write(':')..write(last);
+          }
+          buffer..write(',')..write(current);
+          lastWritten = current;
+        } else if (i == _ids.length - 1) {
+          if (last == lastWritten) {
+            buffer..write(',')..write(current);
+          } else {
+            buffer..write(':')..write(current);
+          }
+        }
+        last = current;
+      } */
     }
+    /*
     if (_idsWithRange.isNotEmpty) {
       var addComma = buffer.length > 0;
       for (var key in _idsWithRange.keys) {
@@ -440,12 +453,18 @@ class MessageSequence {
         buffer.write(',');
       }
       buffer.write('*');
-    }
+    } */
     if (_isAllAdded) {
       if (buffer.length > 0) {
         buffer.write(',');
       }
       buffer.write('1:*');
+    }
+  }
+
+  Iterable<int> every() sync* {
+    for (var id in _ids) {
+      yield id;
     }
   }
 }
