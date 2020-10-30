@@ -144,7 +144,7 @@ class MimePart {
       result.add(info);
     }
     if (includeNestedMessages ||
-        getHeaderContentType().mediaType.sub != MediaSubtype.messageRfc822 ||
+        getHeaderContentType()?.mediaType?.sub != MediaSubtype.messageRfc822 ||
         direct) {
       if (parts?.isNotEmpty ?? false) {
         for (var i = 0; i < parts.length; i++) {
