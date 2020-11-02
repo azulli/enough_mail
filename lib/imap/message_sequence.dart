@@ -401,6 +401,10 @@ class MessageSequence {
           }
         }
       }
+      if (cache > 0) {
+        buffer..write(':')..write(cache);
+        cache = 0;
+      }
       /* This is a no-no for SORTed sequences
       _ids.sort();
       int last;
