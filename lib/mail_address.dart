@@ -33,7 +33,7 @@ class MailAddress extends JsonSerializable {
 
   @override
   String toString() {
-    if (personalName == null) {
+    if (personalName == null || personalName.isEmpty) {
       return email;
     }
 
@@ -43,7 +43,7 @@ class MailAddress extends JsonSerializable {
   }
 
   String encode() {
-    if (personalName == null) {
+    if (personalName == null || personalName.isEmpty) {
       return email;
     }
     var buffer = StringBuffer()
@@ -57,7 +57,7 @@ class MailAddress extends JsonSerializable {
   }
 
   void write(StringBuffer buffer) {
-    if (personalName == null) {
+    if (personalName == null || personalName.isEmpty) {
       buffer.write(email);
     } else {
       buffer
