@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:enough_mail/enough_mail.dart';
 import 'package:test/test.dart';
 import 'package:enough_mail/mime_message.dart';
@@ -110,7 +112,7 @@ void main() {
     test('multipart/alternative  1', () {
       var body = '''
 From: Me Myself <me@sample.com>\r
-To: You <you@recipientdomain.com>\r 
+To: You <you@recipientdomain.com>\r
 Subject: \r
 Date: Mon, 4 Dec 2019 15:51:37 +0100\r
 Message-ID: <coi\$22938.8238702@sample.com>\r
@@ -151,7 +153,7 @@ hello **COI** world!\r
 \r
 --unique-boundary-1--\r
       ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       message.parse();
       var contentTypeHeader = message.getHeaderContentType();
       expect(contentTypeHeader, isNotNull);
@@ -206,7 +208,7 @@ It DOES end with a linebreak.\r
 \r
 This is the epilogue.  It is also to be ignored.\r
 ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       message.parse();
       expect(message.headers, isNotNull);
       expect(message.parts, isNotNull);
@@ -302,7 +304,7 @@ Content-Transfer-Encoding: Quoted-printable\r
 \r
 --unique-boundary-1--\r
 ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       message.parse();
       expect(message.headers, isNotNull);
       expect(message.parts, isNotNull);
@@ -450,7 +452,7 @@ To unsubscribe send an email to coi-dev-leave@mailman.org\r
 --------------86BEE1CE827E0503C696F61E--\r
 \r
 ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       message.parse();
       expect(message.headers, isNotNull);
       expect(message.parts, isNotNull);
@@ -587,7 +589,7 @@ _______________________________________________\r
 coi-dev mailing list -- mailinglistt@mailman.org\r
 To unsubscribe send an email to coi-dev-leave@mailman.org\r
 ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       message.parse();
       expect(message.headers, isNotNull);
       expect(message.parts, isNull);
@@ -612,7 +614,7 @@ Subject: =?ISO-8859-1?B?SWYgeW91IGNhbiByZWFkIHRoaXMgeW8=?=\r
     =?ISO-8859-2?B?dSB1bmRlcnN0YW5kIHRoZSBleGFtcGxlLg==?=\r
 \r
 ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       message.parse();
       expect(message.headers, isNotNull);
       var header = message.decodeHeaderMailAddressValue('from');
@@ -649,7 +651,7 @@ Subject: Test of new header generator\r
 MIME-Version: 1.0\r
 Content-type: text/plain; charset=ISO-8859-1\r
 ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       message.parse();
       expect(message.headers, isNotNull);
       var header = message.decodeHeaderMailAddressValue('from');
@@ -752,7 +754,8 @@ Subject: Test of new header generator\r
 MIME-Version: 1.0\r
 Content-type: text/plain; charset=ISO-8859-1\r
 ''';
-      var mimeMessage = MimeMessage()..bodyRaw = body;
+      var mimeMessage = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(body.codeUnits);
       var sender = mimeMessage.decodeSender();
       expect(sender, isNotEmpty);
       expect(sender.length, 1);
@@ -771,7 +774,8 @@ Subject: Test of new header generator\r
 MIME-Version: 1.0\r
 Content-type: text/plain; charset=ISO-8859-1\r
 ''';
-      var mimeMessage = MimeMessage()..bodyRaw = body;
+      var mimeMessage = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(body.codeUnits);
       var sender = mimeMessage.decodeSender();
       expect(sender, isNotEmpty);
       expect(sender.length, 1);
@@ -791,7 +795,8 @@ Subject: Test of new header generator\r
 MIME-Version: 1.0\r
 Content-type: text/plain; charset=ISO-8859-1\r
 ''';
-      var mimeMessage = MimeMessage()..bodyRaw = body;
+      var mimeMessage = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(body.codeUnits);
       var sender = mimeMessage.decodeSender(combine: true);
       expect(sender, isNotEmpty);
       expect(sender.length, 3);
@@ -815,7 +820,8 @@ Subject: Test of new header generator\r
 MIME-Version: 1.0\r
 Content-type: text/plain; charset=ISO-8859-1\r
 ''';
-      var mimeMessage = MimeMessage()..bodyRaw = body;
+      var mimeMessage = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(body.codeUnits);
       expect(
           mimeMessage.isFrom(
               MailAddress('Nathaniel Borenstein', 'nsb@thumper.bellcore.com')),
@@ -843,7 +849,8 @@ Subject: Test of new header generator\r
 MIME-Version: 1.0\r
 Content-type: text/plain; charset=ISO-8859-1\r
 ''';
-      var mimeMessage = MimeMessage()..bodyRaw = body;
+      var mimeMessage = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(body.codeUnits);
       expect(
           mimeMessage.isFrom(
               MailAddress('Nathaniel Borenstein', 'nsb@thumper.bellcore.com')),
@@ -867,7 +874,8 @@ Subject: Test of new header generator\r
 MIME-Version: 1.0\r
 Content-type: text/plain; charset=ISO-8859-1\r
 ''';
-      var mimeMessage = MimeMessage()..bodyRaw = body;
+      var mimeMessage = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(body.codeUnits);
       expect(
           mimeMessage.isFrom(
               MailAddress('Nathaniel Borenstein', 'nsb@thumper.bellcore.com')),
@@ -1037,7 +1045,7 @@ To unsubscribe send an email to coi-dev-leave@mailman.org\r
 --------------86BEE1CE827E0503C696F61E--\r
 \r
 ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       var attachments = message.findContentInfo();
       expect(attachments, isNotEmpty);
       expect(attachments.length, 1);
@@ -1114,7 +1122,7 @@ To unsubscribe send an email to coi-dev-leave@mailman.org\r
 --------------86BEE1CE827E0503C696F61E--\r
 \r
 ''';
-      var message = MimeMessage()..bodyRaw = body;
+      var message = MimeMessage()..bodyRaw = Uint8List.fromList(body.codeUnits);
       var attachments = message.findContentInfo();
       expect(attachments, isNotEmpty);
       expect(attachments.length, 2);

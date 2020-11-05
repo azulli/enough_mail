@@ -129,7 +129,7 @@ void _log(String text) {
 class DummySmtpCommand extends SmtpCommand {
   DummySmtpCommand(String command) : super(command);
   @override
-  String nextCommand(SmtpResponse response) {
+  Future<String> nextCommand(SmtpResponse response) {
     throw this;
   }
 }

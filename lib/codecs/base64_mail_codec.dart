@@ -18,7 +18,7 @@ class Base64MailCodec extends MailCodec with Base64CachedCodec {
   @override
   String encodeText(String text, {Codec codec = utf8, bool wrap = true}) {
     var charCodes = codec.encode(text);
-    return encodeData(charCodes);
+    return encodeData(charCodes, wrap: wrap);
   }
 
   /// Encodes the header text in base64 only if required.

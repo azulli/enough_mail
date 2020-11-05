@@ -904,8 +904,9 @@ class MimeMessage extends MimePart {
 class Header {
   String name;
   String value;
+  String encoding; // Q, B, null
 
-  Header(this.name, this.value);
+  Header(this.name, this.value, [this.encoding]);
 
   @override
   String toString() {
@@ -922,7 +923,8 @@ class Header {
     var length = name.length + ': '.length + (value?.length ?? 0);
     buffer.write(name);
     buffer.write(': ');
-    if (length < MailConventions.textLineMaxLength) {
+    // Writes the entire line if below length limit or base64 encoded
+    if (length < MailConventions.textLineMaxLength || encoding == 'B') {
       buffer.write(value ?? '');
       buffer.write('\r\n');
     } else {
@@ -933,26 +935,37 @@ class Header {
       while (length > 0) {
         var chunkLength = MailConventions.textLineMaxLength - currentLineLength;
         if (startIndex + chunkLength >= value?.length ?? 0) {
-          // write reminder:
-          buffer.write(value?.substring(startIndex)?.trim() ?? '');
+          // write remainder:
+          buffer.write(value?.substring(startIndex)?.trimRight() ?? '');
           buffer.write('\r\n');
           break;
         }
-        for (var runeIndex = startIndex + chunkLength;
-            runeIndex > startIndex;
-            runeIndex--) {
-          var rune = runes.elementAt(runeIndex);
-          if (rune == AsciiRunes.runeSemicolon ||
-              rune == AsciiRunes.runeSpace ||
-              rune == AsciiRunes.runeClosingParentheses ||
-              rune == AsciiRunes.runeClosingBracket ||
-              rune == AsciiRunes.runeGreaterThan) {
-            chunkLength = runeIndex - startIndex + 1;
-            break;
+        var myChunk = value.substring(startIndex, startIndex + chunkLength);
+        if (myChunk.startsWith('=?')) {
+          // Detects the length of an encoded-word
+          var endWord = myChunk.indexOf('?=', 16);
+          chunkLength = endWord + 2;
+        } else {
+          for (var runeIndex = startIndex + chunkLength;
+              runeIndex > startIndex;
+              runeIndex--) {
+            var rune = runes.elementAt(runeIndex);
+            if (rune == AsciiRunes.runeSemicolon ||
+                rune == AsciiRunes.runeSpace ||
+                rune == AsciiRunes.runeClosingParentheses ||
+                rune == AsciiRunes.runeClosingBracket ||
+                rune == AsciiRunes.runeGreaterThan) {
+              chunkLength = runeIndex - startIndex + 1;
+              break;
+            }
           }
         }
-        buffer.write(
-            value.substring(startIndex, startIndex + chunkLength).trim());
+        buffer.write(value.substring(startIndex, startIndex + chunkLength));
+        if (value.runes.elementAt(startIndex + chunkLength) !=
+                AsciiRunes.runeEquals &&
+            length - chunkLength > 0) {
+          buffer.write('='); // Soft wrap indicator
+        }
         buffer.write('\r\n');
         length -= chunkLength;
         startIndex += chunkLength;

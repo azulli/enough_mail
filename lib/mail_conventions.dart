@@ -3,6 +3,12 @@ class MailConventions {
   /// The maximum length of a text email should not be longer than 76 characters.
   static const int textLineMaxLength = 76;
 
+  /// The maximum length of an encoded-word including separator, charset, encoding and data must not be longer than 75 characters.
+  static const int encodedWordMaxLength = 75;
+
+  /// The maximum length of an internet message line must not be longer than 998 characters.
+  static const int genericLineMaixLength = 998;
+
   static const String defaultReplyAbbreviation = 'Re';
   static const String defaultReplyHeaderTemplate = 'On <date> <from> wrote:';
   static const String defaultForwardAbbreviation = 'Fwd';

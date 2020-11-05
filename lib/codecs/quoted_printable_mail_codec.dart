@@ -81,23 +81,58 @@ class QuotedPrintableMailCodec extends MailCodec {
         endIndex = text.length - 1;
       }
       var buffer = StringBuffer();
+      final qpEncodedWordMaxLength = MailConventions.encodedWordMaxLength -
+          '=?utf8?Q?'.length -
+          '?='.length;
+      // Counts the characters of the current encoded-word
+      var wordCounter = 0;
+      // True when reached the qpEncodedWordMaxLength limit
+      var eolReached = false;
       for (var runeIndex = 0; runeIndex < runes.length; runeIndex++) {
         var rune = runes.elementAt(runeIndex);
         if (runeIndex < startIndex || runeIndex > endIndex) {
           buffer.writeCharCode(rune);
           continue;
         }
-        if (runeIndex == startIndex) {
+        if (runeIndex == startIndex || eolReached) {
+          // Adds the encoded-word terminator
+          if (eolReached) buffer.write('?=');
           buffer.write('=?utf8?Q?');
+          eolReached = false;
         }
+        // Se è un carattere ASCII ammesso, lo aggiunge e incrementa il contatore
         if ((rune > AsciiRunes.runeSpace && rune <= 60) ||
             (rune == 62) ||
             (rune > 63 && rune <= 126 && rune != AsciiRunes.runeUnderline)) {
-          buffer.writeCharCode(rune);
+          wordCounter++;
+          eolReached = wordCounter > qpEncodedWordMaxLength;
+          if (wordCounter <= qpEncodedWordMaxLength) {
+            buffer.writeCharCode(rune);
+          } else {
+            wordCounter = 0;
+            runeIndex--;
+          }
         } else if (rune == AsciiRunes.runeSpace) {
-          buffer.write('_');
+          wordCounter++;
+          eolReached = wordCounter > qpEncodedWordMaxLength;
+          if (wordCounter <= qpEncodedWordMaxLength) {
+            buffer.write('_');
+          } else {
+            wordCounter = 0;
+            runeIndex--;
+          }
         } else {
-          _writeQuotedPrintable(rune, buffer, codec);
+          // _writeQuotedPrintable(rune, buffer, codec);
+          var quoted = _encodeQuotedPrintableChar(rune, codec);
+          wordCounter += quoted.length;
+          eolReached = wordCounter >= qpEncodedWordMaxLength;
+          if (wordCounter <= qpEncodedWordMaxLength) {
+            buffer.write(quoted);
+          } else {
+            wordCounter = 0;
+            // Resets the rune index for character reprocessing on the new line
+            runeIndex--;
+          }
         }
         if (runeIndex == endIndex) {
           buffer.write('?=');
@@ -179,6 +214,28 @@ class QuotedPrintableMailCodec extends MailCodec {
       buffer.write(paddedHexValue);
     }
     return buffer.length - lengthBefore;
+  }
+
+  /// Like [_writeQuotedPrintable()] but operates on single char.
+  String _encodeQuotedPrintableChar(int rune, Codec codec) {
+    List<int> encoded;
+    if (rune < 128) {
+      // this is 7 bit ASCII
+      encoded = [rune];
+    } else {
+      var runeText = String.fromCharCode(rune);
+      encoded = codec.encode(runeText);
+    }
+    var buffer = StringBuffer();
+    for (var charCode in encoded) {
+      var paddedHexValue = charCode.toRadixString(16).toUpperCase();
+      buffer.write('=');
+      if (paddedHexValue.length == 1) {
+        buffer.write('0');
+      }
+      buffer.write(paddedHexValue);
+    }
+    return buffer.toString();
   }
 
   @override

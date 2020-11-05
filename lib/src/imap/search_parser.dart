@@ -5,6 +5,8 @@ import 'package:enough_mail/src/imap/response_parser.dart';
 import 'imap_response.dart';
 
 /// Parses search responses
+///
+/// The flag [isExtended] must be set if the command was an extended search.
 class SearchParser extends ResponseParser<SearchImapResult> {
   List<int> ids = <int>[];
   int highestModSequence;
@@ -19,7 +21,7 @@ class SearchParser extends ResponseParser<SearchImapResult> {
 
   String partialRange;
 
-  SearchParser(this.isExtended);
+  SearchParser([this.isExtended = false]);
 
   @override
   SearchImapResult parse(

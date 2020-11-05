@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -85,7 +86,8 @@ void main() {
 
       var messageText = message.renderMessage();
       //print(messageText);
-      var parsed = MimeMessage()..bodyRaw = messageText;
+      var parsed = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(utf8.encode(messageText));
 
       expect(parsed.getHeaderValue('subject'), 'Hello from test');
       id = parsed.getHeaderValue('message-id');
@@ -133,7 +135,8 @@ void main() {
       message.render(buffer);
       var messageText = buffer.toString();
       //print(messageText);
-      var parsed = MimeMessage()..bodyRaw = messageText;
+      var parsed = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(utf8.encode(messageText));
 
       expect(parsed.getHeaderValue('subject'), 'Hello from test');
       id = parsed.getHeaderValue('message-id');
@@ -175,7 +178,8 @@ void main() {
       var message = builder.buildMimeMessage();
       var rendered = message.renderMessage();
       //print(rendered);
-      var parsed = MimeMessage()..bodyRaw = rendered;
+      var parsed = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(utf8.encode(rendered));
       expect(parsed.getHeaderContentType().mediaType.sub,
           MediaSubtype.multipartAlternative);
       expect(parsed.parts, isNotNull);
@@ -219,7 +223,8 @@ END:VCARD\r
       var message = builder.buildMimeMessage();
       var rendered = message.renderMessage();
       //print(rendered);
-      var parsed = MimeMessage()..bodyRaw = rendered;
+      var parsed = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(utf8.encode(rendered));
       expect(parsed.getHeaderContentType().mediaType.sub,
           MediaSubtype.multipartMixed);
       expect(parsed.parts, isNotNull);
@@ -383,13 +388,13 @@ END:VCARD\r
           message.getHeaderValue('Content-Type'), 'text/plain; charset="utf8"');
       expect(message.getHeaderValue('Content-Transfer-Encoding'),
           'quoted-printable');
-      var expectedStart = 'Here is my reply\r\n>On ';
+      var expectedStart =
+          Uint8List.fromList('Here is my reply\r\n>On '.codeUnits);
+      expect(message.bodyRaw?.sublist(0, expectedStart.length), expectedStart);
+      var expectedEnd =
+          Uint8List.fromList('sentence is finished.\r\n>'.codeUnits);
       expect(
-          message.bodyRaw?.substring(0, expectedStart.length), expectedStart);
-      var expectedEnd = 'sentence is finished.\r\n>';
-      expect(
-          message.bodyRaw
-              ?.substring(message.bodyRaw.length - expectedEnd.length),
+          message.bodyRaw?.sublist(message.bodyRaw.length - expectedEnd.length),
           expectedEnd);
     });
 
@@ -617,13 +622,12 @@ END:VCARD\r
           '>From: "Personal Name" <sender@domain.com>\r\n'
           '>To: "Me" <recipient@domain.com>\r\n'
           '>CC: "One m=C3=B6re" <one.more@domain.com>';
-      expect(
-          message.bodyRaw?.substring(0, expectedStart.length), expectedStart);
+      expect(message.bodyRaw?.sublist(0, expectedStart.length),
+          Uint8List.fromList(expectedStart.codeUnits));
       var expectedEnd = 'sentence is finished.\r\n>';
       expect(
-          message.bodyRaw
-              ?.substring(message.bodyRaw.length - expectedEnd.length),
-          expectedEnd);
+          message.bodyRaw?.sublist(message.bodyRaw.length - expectedEnd.length),
+          Uint8List.fromList(expectedEnd.codeUnits));
     });
 
     test('forward multipart text msg', () {
@@ -783,7 +787,8 @@ END:VCARD\r
       var message = builder.buildMimeMessage();
       var rendered = message.renderMessage();
       //print(rendered);
-      var parsed = MimeMessage()..bodyRaw = rendered;
+      var parsed = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(utf8.encode(rendered));
       expect(parsed.getHeaderContentType().mediaType.sub,
           MediaSubtype.multipartMixed);
       expect(parsed.parts, isNotNull);
@@ -820,7 +825,8 @@ END:VCARD\r
       var message = builder.buildMimeMessage();
       var rendered = message.renderMessage();
       //print(rendered);
-      var parsed = MimeMessage()..bodyRaw = rendered;
+      var parsed = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(utf8.encode(rendered));
       expect(parsed.getHeaderContentType().mediaType.sub,
           MediaSubtype.multipartMixed);
       expect(parsed.parts, isNotNull);
@@ -857,7 +863,8 @@ END:VCARD\r
       var message = builder.buildMimeMessage();
       var rendered = message.renderMessage();
       //print(rendered);
-      var parsed = MimeMessage()..bodyRaw = rendered;
+      var parsed = MimeMessage()
+        ..bodyRaw = Uint8List.fromList(utf8.encode(rendered));
       expect(parsed.getHeaderContentType().mediaType.sub,
           MediaSubtype.multipartMixed);
       expect(parsed.parts, isNotNull);
