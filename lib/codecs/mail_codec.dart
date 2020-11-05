@@ -1,12 +1,14 @@
 import 'dart:convert';
-
 import 'dart:typed_data';
 
 import 'package:enough_mail/mail_conventions.dart';
 import 'package:enough_mail/src/util/ascii_runes.dart';
 
-import 'quoted_printable_mail_codec.dart';
 import 'base64_mail_codec.dart';
+import 'quoted_printable_mail_codec.dart';
+
+/// Types of header value encoding.
+enum HeaderEncoding { Q, B, none }
 
 /// Encodes and decodes base-64 and quoted printable encoded texts
 /// Compare https://tools.ietf.org/html/rfc2045#page-19
@@ -173,6 +175,18 @@ abstract class MailCodec with MailCodecData {
       return part;
     }
     return codec.decode(part.codeUnits);
+  }
+
+  static HeaderEncoding detectHeaderEncoding(String value) {
+    var match = _encodingExpression.firstMatch(value);
+    if (match == null) {
+      return HeaderEncoding.none;
+    }
+    var group = match.group(0);
+    if (group.contains('?Q?')) {
+      return HeaderEncoding.Q;
+    }
+    return HeaderEncoding.B;
   }
 
   /// Wraps the text so that it stays within email's 76 characters per line convention.

@@ -226,10 +226,17 @@ class PartBuilder {
 
   /// Adds a header with the specified [name] and [value].
   /// Compare [MailConventions] for common header names.
-  /// Set [encode] to true to encode the header value in quoted printable format.
-  void addHeader(String name, String value, {bool encode = false}) {
-    if (encode) {
-      value = MailCodec.quotedPrintable.encodeHeader(value);
+  /// Set [encode] to encode the header value in the [HeaderEncoding] format.
+  void addHeader(String name, String value,
+      {HeaderEncoding encode = HeaderEncoding.none}) {
+    // ignore: missing_enum_constant_in_switch
+    switch (encode) {
+      case HeaderEncoding.Q:
+        value = MailCodec.quotedPrintable.encodeHeader(value);
+        break;
+      case HeaderEncoding.B:
+        value = MailCodec.base64.encodeHeader(value, fromStart: true);
+        break;
     }
     _part.addHeader(name, value);
   }
@@ -237,9 +244,16 @@ class PartBuilder {
   /// Sets a header with the specified [name] and [value], replacing any previous header with the same [name].
   /// Compare [MailConventions] for common header names.
   /// Set [encode] to true to encode the header value in quoted printable format.
-  void setHeader(String name, String value, {bool encode = false}) {
-    if (encode) {
-      value = MailCodec.quotedPrintable.encodeHeader(value);
+  void setHeader(String name, String value,
+      {HeaderEncoding encode = HeaderEncoding.none}) {
+    // ignore: missing_enum_constant_in_switch
+    switch (encode) {
+      case HeaderEncoding.Q:
+        value = MailCodec.quotedPrintable.encodeHeader(value);
+        break;
+      case HeaderEncoding.B:
+        value = MailCodec.base64.encodeHeader(value, fromStart: true);
+        break;
     }
     _part.setHeader(name, value);
   }
@@ -302,6 +316,7 @@ class MessageBuilder extends PartBuilder {
   List<MailAddress> cc;
   List<MailAddress> bcc;
   String subject;
+  HeaderEncoding subjectEncoding;
   DateTime date;
   String messageId;
   MimeMessage replyToMessage;
@@ -398,7 +413,8 @@ class MessageBuilder extends PartBuilder {
       setHeader('Chat-Version', '1.0');
     }
     if (subject != null) {
-      setHeader('Subject', subject, encode: true);
+      setHeader('Subject', subject,
+          encode: subjectEncoding ?? HeaderEncoding.none);
     }
     setHeader(MailConventions.headerMimeVersion, '1.0');
     if (replyToMessage != null) {
@@ -445,7 +461,8 @@ class MessageBuilder extends PartBuilder {
       bool isChat = false,
       String chatGroupId,
       CharacterSet characterSet = CharacterSet.utf8,
-      MessageEncoding encoding = MessageEncoding.quotedPrintable}) {
+      MessageEncoding encoding = MessageEncoding.quotedPrintable,
+      HeaderEncoding subjectEncoding = HeaderEncoding.none}) {
     var builder = MessageBuilder()
       ..from = [from]
       ..to = to
@@ -460,7 +477,8 @@ class MessageBuilder extends PartBuilder {
       ..isChat = isChat
       ..chatGroupId = chatGroupId
       ..characterSet = characterSet
-      ..encoding = encoding;
+      ..encoding = encoding
+      ..subjectEncoding = subjectEncoding;
 
     return builder.buildMimeMessage();
   }
@@ -476,8 +494,12 @@ class MessageBuilder extends PartBuilder {
       String defaultForwardAbbreviation =
           MailConventions.defaultForwardAbbreviation}) {
     String subject;
-    var originalSubject = originalMessage.decodeSubject();
+    //var originalSubject = originalMessage.decodeSubject();
+    var originalSubject = originalMessage.getHeaderValue('subject');
+    var subjectEncoding = HeaderEncoding.none;
     if (originalSubject != null) {
+      subjectEncoding = MailCodec.detectHeaderEncoding(originalSubject);
+      originalSubject = MailCodec.decodeHeader(originalSubject);
       subject = createForwardSubject(originalSubject,
           defaultForwardAbbreviation: defaultForwardAbbreviation);
     } else {
@@ -485,6 +507,7 @@ class MessageBuilder extends PartBuilder {
     }
     var builder = MessageBuilder()
       ..subject = subject
+      ..subjectEncoding = subjectEncoding
       ..contentType = originalMessage.getHeaderContentType()
       ..contentTransferEncoding = originalMessage
           .getHeaderValue(MailConventions.headerContentTransferEncoding);
@@ -588,8 +611,12 @@ class MessageBuilder extends PartBuilder {
       List<MailAddress> aliases,
       bool handlePlusAliases = false}) {
     String subject;
-    var originalSubject = originalMessage.decodeSubject();
+    // var originalSubject = originalMessage.decodeSubject();
+    var originalSubject = originalMessage.getHeaderValue('subject');
+    var subjectEncoding = HeaderEncoding.none;
     if (originalSubject != null) {
+      subjectEncoding = MailCodec.detectHeaderEncoding(originalSubject);
+      originalSubject = MailCodec.decodeHeader(originalSubject);
       subject = createReplySubject(originalSubject,
           defaultReplyAbbreviation: defaultReplyAbbreviation);
     }
@@ -625,6 +652,7 @@ class MessageBuilder extends PartBuilder {
     }
     var builder = MessageBuilder()
       ..subject = subject
+      ..subjectEncoding = subjectEncoding
       ..replyToMessage = originalMessage
       ..from = [from]
       ..to = to
