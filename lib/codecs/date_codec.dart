@@ -67,7 +67,7 @@ Date and time values occur in several header fields.  This section
    for the specified month (in the specified year), the time-of-day MUST
    be in the range 00:00:00 through 23:59:60 (the number of seconds
    allowing for a leap second; see [RFC1305]), and the last two digits
-   of the zone MUST be within the range 00 through 59.    
+   of the zone MUST be within the range 00 through 59.
    */
     var weekdays = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     var months = <String>[
@@ -189,7 +189,7 @@ Date and time values occur in several header fields.  This section
    for the specified month (in the specified year), the time-of-day MUST
    be in the range 00:00:00 through 23:59:60 (the number of seconds
    allowing for a leap second; see [RFC1305]), and the last two digits
-   of the zone MUST be within the range 00 through 59.    
+   of the zone MUST be within the range 00 through 59.
    */
     if (dateText == null || dateText.isEmpty) {
       return null;
@@ -490,6 +490,7 @@ Date and time values occur in several header fields.  This section
           'WST': '+0800', // Western Standard Time (North America)
           'YAKT': '+0900', // Yakutsk Time
           'YEKT': '+0500', // Yekaterinburg Time
+          'Z': '+0000',
         };
         var zoneOffset = timeZonesByName[zoneText];
         if (zoneOffset == null) {
