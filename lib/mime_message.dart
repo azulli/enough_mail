@@ -355,16 +355,17 @@ class MimePart {
   /// Renders this mime part with all children parts into the specified [buffer].
   ///
   /// You can set [renderHeader] to `false` when the message headers should not be rendered.
-  void render(StringBuffer buffer, {bool renderHeader = true}) {
+  void render(StringSink buffer,
+      {bool renderHeader = true, bool isSmtp = false}) {
     if (mimeData != null) {
       if (!mimeData!.containsHeader && renderHeader) {
-        _renderHeaders(buffer);
+        _renderHeaders(buffer, isSmtp: isSmtp);
         buffer.write('\r\n');
       }
-      mimeData!.render(buffer);
+      mimeData!.render(buffer, isSmtp: isSmtp);
     } else {
       if (renderHeader) {
-        _renderHeaders(buffer);
+        _renderHeaders(buffer, isSmtp: isSmtp);
         buffer.write('\r\n');
       }
       if (parts?.isNotEmpty ?? false) {
@@ -377,7 +378,7 @@ class MimePart {
           buffer.write('--');
           buffer.write(multiPartBoundary);
           buffer.write('\r\n');
-          part.render(buffer);
+          part.render(buffer, isSmtp: isSmtp);
           buffer.write('\r\n');
         }
         buffer.write('--');
@@ -388,9 +389,12 @@ class MimePart {
     }
   }
 
-  void _renderHeaders(StringBuffer buffer) {
+  void _renderHeaders(StringSink buffer, {bool isSmtp = false}) {
     if (headers != null) {
       for (final header in headers!) {
+        if (isSmtp && header.lowerCaseName == 'bcc') {
+          continue;
+        }
         header.render(buffer);
       }
     }
@@ -523,10 +527,24 @@ class MimeMessage extends MimePart {
   ///
   /// Optionally exclude the rendering of the headers by setting [renderHeader] to `false`
   /// Internally calls [render(StringBuffer)] to render all mime parts.
-  String renderMessage({bool renderHeader = true}) {
-    final buffer = StringBuffer();
-    render(buffer, renderHeader: renderHeader);
+  String renderMessage({bool renderHeader = true, bool isSmtp = false}) {
+    var buffer = StringBuffer();
+    render(buffer, renderHeader: renderHeader, isSmtp: isSmtp);
     return buffer.toString();
+  }
+
+  /// Renders the complete message into a StringSink.
+  ///
+  /// Optionally exclude the rendering of the headers by setting [renderHeader] to `false`
+  /// Internally calls [render(StringBuffer)] to render all mime parts.
+  bool renderMessageToBuffer(StringSink? buffer,
+      {bool renderHeader = true, bool isSmtp = false}) {
+    if (buffer == null) {
+      // StateError for missing buffer?
+      return false;
+    }
+    render(buffer, renderHeader: renderHeader, isSmtp: isSmtp);
+    return true;
   }
 
   /// Creates a new message based on the specified rendered text form.
@@ -964,7 +982,7 @@ class Header {
     buffer.write(value);
   }
 
-  void render(StringBuffer buffer) {
+  void render(StringSink buffer) {
     var length =
         name.length + ': '.length + (value == null ? 0 : value!.length);
     buffer.write(name);
