@@ -164,7 +164,9 @@ class MimePart {
     complete ??= true;
     final header = getHeaderContentDisposition();
     final isMessage = getHeaderContentType()?.mediaType.isMessage ?? false;
-    if ((!reverse && header?.disposition == disposition) ||
+    var anyDisposition = disposition == ContentDisposition.any;
+    if (anyDisposition ||
+        (!reverse && header?.disposition == disposition) ||
         (reverse && header?.disposition != disposition)) {
       final info = ContentInfo(fetchId ?? '')
         ..contentDisposition = header
@@ -1058,6 +1060,9 @@ class BodyPart {
 
   BodyPart? _parent;
 
+  /// Gives access to the parent [BodyPart]
+  BodyPart? get parent => _parent;
+
   BodyPart addPart([BodyPart? childPart]) {
     childPart ??= BodyPart();
     parts ??= <BodyPart>[];
@@ -1137,8 +1142,10 @@ class BodyPart {
     withCleanParts ??= true;
     complete ??= true;
     final isMessage = contentType?.mediaType.isMessage ?? false;
+    var anyDisposition = disposition == ContentDisposition.any;
     if (fetchId != null) {
-      if ((!reverse && contentDisposition?.disposition == disposition) ||
+      if (anyDisposition ||
+          (!reverse && contentDisposition?.disposition == disposition) ||
           (reverse &&
               contentDisposition?.disposition != disposition &&
               contentType?.mediaType.top != MediaToptype.multipart)) {
@@ -1407,7 +1414,7 @@ class ContentTypeHeader extends ParameterizedHeader {
 
 /// Specifies the content disposition of a mime part.
 /// Compare https://tools.ietf.org/html/rfc2183 for details.
-enum ContentDisposition { inline, attachment, other }
+enum ContentDisposition { any, inline, attachment, other }
 
 /// Specifies the content disposition header of a mime part.
 /// Compare https://tools.ietf.org/html/rfc2183 for details.
