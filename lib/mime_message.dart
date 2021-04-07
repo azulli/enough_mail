@@ -25,11 +25,18 @@ class MimePart {
   ///
   List<MimePart>? parts;
 
+  /// Signal if this part is partially retrieved (like only the headers of a message/rfc822 part).
+  bool _isPartial = false;
+  bool get isPartial => _isPartial;
+  bool get isNotPartial => !_isPartial;
+
   bool _isParsed = false;
   String? _decodedText;
   DateTime? _decodedDate;
   ContentTypeHeader? _contentTypeHeader;
   ContentDispositionHeader? _contentDispositionHeader;
+
+  MimePart([bool? isPartial]) : _isPartial = isPartial ?? false;
 
   /// Simplified way to retrieve the media type
   /// When no `content-type` header is defined, the media type `text/plain` is returned
@@ -169,6 +176,7 @@ class MimePart {
       final info = ContentInfo(fetchId ?? '')
         ..contentDisposition = header
         ..contentType = getHeaderContentType()
+        ..encoding = getHeaderValue('content-transfer-encoding')
         ..cid = _getLowerCaseHeaderValue('content-id');
       result.add(info);
     }
@@ -691,6 +699,9 @@ class MimeMessage extends MimePart {
       if (part != null) {
         return part;
       }
+    }
+    if (!mediaType.isMultipart && fetchId == '1') {
+      return this;
     }
     final idParts = fetchId.split('.').map<int>((part) => int.parse(part));
     MimePart parent = this;
@@ -1520,6 +1531,7 @@ class ContentInfo {
   ContentDispositionHeader? contentDisposition;
   ContentTypeHeader? contentType;
   final String fetchId;
+  String? encoding;
   String? cid;
   String? _decodedFileName;
   String? get fileName {
