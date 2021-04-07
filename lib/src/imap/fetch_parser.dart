@@ -178,7 +178,8 @@ class FetchParser extends ResponseParser<FetchImapResult> {
       final startIndex = 'BODY['.length;
       final endIndex = bodyPartDefinition.length - 1;
       final fetchId = bodyPartDefinition.substring(startIndex, endIndex);
-      final part = MimePart();
+      final part =
+          MimePart(fetchId.endsWith('.HEADER') || fetchId.endsWith('.TEXT'));
       if (imapValue.value != null) {
         part.mimeData = TextMimeData(imapValue.value!, false);
       } else if (imapValue.data != null) {
