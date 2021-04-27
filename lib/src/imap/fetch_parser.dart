@@ -1,13 +1,13 @@
 import 'package:enough_mail/codecs/date_codec.dart';
 import 'package:enough_mail/codecs/mail_codec.dart';
 import 'package:enough_mail/imap/message_sequence.dart';
+import 'package:enough_mail/imap/response.dart';
 import 'package:enough_mail/mail_address.dart';
 import 'package:enough_mail/media_type.dart';
+import 'package:enough_mail/mime_data.dart';
 import 'package:enough_mail/mime_message.dart';
 import 'package:enough_mail/src/imap/parser_helper.dart';
 import 'package:enough_mail/src/imap/response_parser.dart';
-import 'package:enough_mail/imap/response.dart';
-import 'package:enough_mail/mime_data.dart';
 
 import 'imap_response.dart';
 
