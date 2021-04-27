@@ -25,11 +25,18 @@ class MimePart {
   ///
   List<MimePart>? parts;
 
+  /// Signal if this part is partially retrieved (like only the headers of a message/rfc822 part).
+  bool _isPartial = false;
+  bool get isPartial => _isPartial;
+  bool get isNotPartial => !_isPartial;
+
   bool _isParsed = false;
   String? _decodedText;
   DateTime? _decodedDate;
   ContentTypeHeader? _contentTypeHeader;
   ContentDispositionHeader? _contentDispositionHeader;
+
+  MimePart([bool? isPartial]) : _isPartial = isPartial ?? false;
 
   /// Simplified way to retrieve the media type
   /// When no `content-type` header is defined, the media type `text/plain` is returned
@@ -164,11 +171,14 @@ class MimePart {
     complete ??= true;
     final header = getHeaderContentDisposition();
     final isMessage = getHeaderContentType()?.mediaType.isMessage ?? false;
-    if ((!reverse && header?.disposition == disposition) ||
+    var anyDisposition = disposition == ContentDisposition.any;
+    if (anyDisposition ||
+        (!reverse && header?.disposition == disposition) ||
         (reverse && header?.disposition != disposition)) {
       final info = ContentInfo(fetchId ?? '')
         ..contentDisposition = header
         ..contentType = getHeaderContentType()
+        ..encoding = getHeaderValue('content-transfer-encoding')
         ..cid = _getLowerCaseHeaderValue('content-id');
       result.add(info);
     }
@@ -710,6 +720,9 @@ class MimeMessage extends MimePart {
         return part;
       }
     }
+    if (!mediaType.isMultipart && fetchId == '1') {
+      return this;
+    }
     final idParts = fetchId.split('.').map<int>((part) => int.parse(part));
     MimePart parent = this;
     for (final id in idParts) {
@@ -1076,6 +1089,9 @@ class BodyPart {
 
   BodyPart? _parent;
 
+  /// Gives access to the parent [BodyPart]
+  BodyPart? get parent => _parent;
+
   BodyPart addPart([BodyPart? childPart]) {
     childPart ??= BodyPart();
     parts ??= <BodyPart>[];
@@ -1155,8 +1171,10 @@ class BodyPart {
     withCleanParts ??= true;
     complete ??= true;
     final isMessage = contentType?.mediaType.isMessage ?? false;
+    var anyDisposition = disposition == ContentDisposition.any;
     if (fetchId != null) {
-      if ((!reverse && contentDisposition?.disposition == disposition) ||
+      if (anyDisposition ||
+          (!reverse && contentDisposition?.disposition == disposition) ||
           (reverse &&
               contentDisposition?.disposition != disposition &&
               contentType?.mediaType.top != MediaToptype.multipart)) {
@@ -1425,7 +1443,7 @@ class ContentTypeHeader extends ParameterizedHeader {
 
 /// Specifies the content disposition of a mime part.
 /// Compare https://tools.ietf.org/html/rfc2183 for details.
-enum ContentDisposition { inline, attachment, other }
+enum ContentDisposition { any, inline, attachment, other }
 
 /// Specifies the content disposition header of a mime part.
 /// Compare https://tools.ietf.org/html/rfc2183 for details.
@@ -1538,6 +1556,7 @@ class ContentInfo {
   ContentDispositionHeader? contentDisposition;
   ContentTypeHeader? contentType;
   final String fetchId;
+  String? encoding;
   String? cid;
   String? _decodedFileName;
   String? get fileName {
