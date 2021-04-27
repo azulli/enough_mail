@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:enough_mail/smtp/smtp_response.dart';
 
 class SmtpCommand {
@@ -16,11 +17,15 @@ class SmtpCommand {
   SmtpCommandData? next(SmtpResponse response) {
     final text = nextCommand(response);
     if (text != null) {
-      return SmtpCommandData(text, null);
+      return SmtpCommandData(text, null, null);
     }
     final data = nextCommandData(response);
     if (data != null) {
-      return SmtpCommandData(null, data);
+      return SmtpCommandData(null, data, null);
+    }
+    final file = nextCommandFile(response);
+    if (file != null) {
+      return SmtpCommandData(null, null, file);
     }
     return null;
   }
@@ -33,8 +38,16 @@ class SmtpCommand {
     return null;
   }
 
+  File? nextCommandFile(SmtpResponse response) {
+    return null;
+  }
+
   bool isCommandDone(SmtpResponse response) {
     return true;
+  }
+
+  bool isStreamingData(SmtpResponse response) {
+    return false;
   }
 
   @override
@@ -46,5 +59,6 @@ class SmtpCommand {
 class SmtpCommandData {
   final String? text;
   final List<int>? data;
-  SmtpCommandData(this.text, this.data);
+  final File? file;
+  SmtpCommandData(this.text, this.data, this.file);
 }
