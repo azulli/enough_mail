@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:enough_mail/src/util/ascii_runes.dart';
+
 class ConnectionInfo {
   final String host;
   final int port;
@@ -206,6 +208,38 @@ abstract class ClientBase {
     _writeFuture = future;
     await future;
     _writeFuture = null;
+  }
+
+  Future streamData(File sourceFile, [dynamic logObject]) async {
+    final total = sourceFile.lengthSync();
+    var transferred = 0;
+    // FIXME await completamento dello stream
+    sourceFile.openRead().listen(
+        (data) async {
+          transferred += data.length;
+          if (isLogEnabled) {
+            logObject ??= '<$transferred of $total bytes>';
+            log(logObject);
+          }
+          // TODO Fire update events
+          // eventBus.fire(SmtpStreamDataEvent(transferred, total));
+          _socket.add(data);
+        },
+        cancelOnError: true,
+        onDone: () async {
+          // Adds the DATA termination
+          _socket.add([
+            AsciiRunes.runeDot,
+            AsciiRunes.runeCarriageReturn,
+            AsciiRunes.runeLineFeed
+          ]);
+          // Single socket flush at end
+          await _socket.flush();
+        },
+        onError: (e, s) {
+          print('Unable to stream cached content: $e $s');
+          throw e;
+        });
   }
 
   void log(dynamic logObject, {bool isClient = true, String? initial}) {
