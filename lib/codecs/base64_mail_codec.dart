@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:enough_mail/codecs/base64_file_cache_codec.dart';
 import 'package:enough_mail/mail_conventions.dart';
 import 'package:enough_mail/src/util/ascii_runes.dart';
 
@@ -7,7 +8,7 @@ import 'mail_codec.dart';
 
 /// Provides base64 encoder and decoder.
 /// Compare https://tools.ietf.org/html/rfc2045#page-23 for details.
-class Base64MailCodec extends MailCodec {
+class Base64MailCodec extends MailCodec with Base64FileCacheCodec {
   const Base64MailCodec();
 
   /// Encodes the specified text in base64 format.

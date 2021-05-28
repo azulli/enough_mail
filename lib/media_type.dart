@@ -82,6 +82,9 @@ enum MediaSubtype {
   /// part that contains PGP keys, compare https://tools.ietf.org/html/rfc3156
   applicationPgpKeys,
 
+  /// part that contains the signature, https://tools.ietf.org/html/rfc8551
+  applicationPkcs7Signature,
+
   modelMesh,
   modelVrml,
   modelX3dXml,
@@ -213,6 +216,7 @@ class MediaType {
         MediaSubtype.applicationOfficeDocumentPresentationPresentation,
     'application/vnd.openxmlformats-officedocument.presentationml.template':
         MediaSubtype.applicationOfficeDocumentPresentationTemplate,
+    'application/pkcs7-signature': MediaSubtype.applicationPkcs7Signature,
     'application/pgp-signature': MediaSubtype.applicationPgpSignature,
     'application/pgp-encrypted': MediaSubtype.applicationPgpEncrypted,
     'application/pgp-keys': MediaSubtype.applicationPgpKeys,
