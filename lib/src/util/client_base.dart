@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:enough_mail/src/util/ascii_runes.dart';
+import 'package:logging/logging.dart';
 
 class ConnectionInfo {
   final String host;
@@ -10,6 +11,8 @@ class ConnectionInfo {
   final bool isSecure;
   const ConnectionInfo(this.host, this.port, this.isSecure);
 }
+
+typedef LoggerFn = void Function(LogRecord);
 
 /// Base class for socket-based clients
 abstract class ClientBase {
@@ -36,12 +39,19 @@ abstract class ClientBase {
 
   late StreamSubscription _socketStreamSubscription;
 
+  late final Logger logger;
+  StreamSubscription<LogRecord>? _loggerSubscription;
+
   /// Creates a new base client
   ///
   /// Set [isLogEnabled] to `true` to see log output.
   /// Set the [logName] for adding the name to each log entry.
   /// Set the [connectionTimeout] in case the connection connection should timeout automatically after the given time.
-  ClientBase({this.isLogEnabled = false, this.logName, this.connectionTimeout});
+  ClientBase(
+      {this.isLogEnabled = false, this.logName, this.connectionTimeout}) {
+    logger = Logger.detached(logName ?? '$runtimeType');
+    _loggerSubscription = logger.onRecord.listen(_logDispatcher);
+  }
 
   /// Connects to the specified server.
   ///
@@ -242,14 +252,31 @@ abstract class ClientBase {
         });
   }
 
-  void log(dynamic logObject, {bool isClient = true, String? initial}) {
+  Level get logLevel => logger.level;
+  set logLevel(Level level) => logger.level = level;
+
+  LoggerFn? _loggerHandlerFn;
+
+  void setLoggerHandler(LoggerFn? handler) => _loggerHandlerFn = handler;
+
+  void removeLoggerHandler() => _loggerHandlerFn = null;
+
+  /// Determina quale funzione di logging utilizzare
+  void _logDispatcher(LogRecord record) {
+    if (record.loggerName != logName) return;
+    if (_loggerHandlerFn != null) {
+      _loggerHandlerFn!(record);
+    } else {
+      print(
+          '[${record.loggerName}] ${record.level.name}: ${record.time}: ${record.message}');
+    }
+  }
+
+  void log(dynamic logObject,
+      {bool isClient = true, String? initial, Level level = Level.INFO}) {
     if (isLogEnabled) {
       initial ??= (isClient == true) ? initialClient : initialServer;
-      if (logName != null) {
-        print('$logName $initial: $logObject');
-      } else {
-        print('$initial: $logObject');
-      }
+      logger.log(level, '$initial: $logObject');
     }
   }
 }
