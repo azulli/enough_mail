@@ -196,6 +196,10 @@ void main() {
         final sequence = MessageSequence.fromRangeToLast(12);
         expect(sequence.toString(), '12:*');
       });
+      test('from saved sequence', () {
+        var sequence = MessageSequence.saved();
+        expect(sequence.toString(), r'$');
+      });
     });
 
     group('Parse', () {
@@ -230,6 +234,10 @@ void main() {
       test('NIL', () {
         final sequence = MessageSequence.parse('NIL');
         expect(sequence.toString(), 'NIL');
+      });
+      test('SEARCHRES', () {
+        var sequence = MessageSequence.parse(r'$');
+        expect(sequence.toString(), r'$');
       });
     });
 
@@ -301,6 +309,10 @@ void main() {
       });
       test('NIL', () {
         final sequence = MessageSequence.parse('NIL');
+        expect(() => sequence.toList(), throwsStateError);
+      });
+      test('SEARCHRES', () {
+        var sequence = MessageSequence.parse(r'$');
         expect(() => sequence.toList(), throwsStateError);
       });
     });

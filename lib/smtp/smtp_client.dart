@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:enough_mail/mail_address.dart';
 import 'package:enough_mail/mime_data.dart';
@@ -234,6 +235,16 @@ class SmtpClient extends ClientBase {
         text, use8BitEncoding, from, recipients.map((r) => r.email).toList()));
   }
 
+  /// Sends the specified prebuilt message [file] [from] to the [recipients].
+  ///
+  /// The message file should be preformatted for direct sending.
+  Future<SmtpResponse> sendMessageFile(
+      File file, MailAddress from, List<MailAddress> recipients,
+      {bool use8BitEncoding = false}) {
+    return sendCommand(SmtpSendMailFileCommand(
+        file, use8BitEncoding, from, recipients.map((r) => r.email).toList()));
+  }
+
   /// Sends the specified [message] using the `BDAT` SMTP command.
   ///
   /// `BDATA` is supported when the SMTP server announces the `CHUNKING` capability in its `EHLO` response. You can query `SmtpServerInfo.supportsChunking` for this.
@@ -338,19 +349,26 @@ class SmtpClient extends ClientBase {
     final cmd = _currentCommand;
     if (cmd != null) {
       try {
-        final next = cmd.next(response);
-        if (next?.text != null) {
-          writeText(next!.text!);
-        } else if (next?.data != null) {
-          writeData(next!.data!);
-        } else if (cmd.isCommandDone(response)) {
-          if (response.isFailedStatus) {
-            cmd.completer.completeError(SmtpException(this, response));
-          } else {
-            cmd.completer.complete(response);
+        // Traps premature SMTP disconnections
+        if (!cmd.isCommandDone(response) && response.code == 221) {
+          log('Premature server disconnection');
+          cmd.completer.completeError(SmtpException(this, response));
+        } else {
+          final next = cmd.next(response);
+          if (next?.text != null) {
+            writeText(next!.text!);
+          } else if (next?.data != null) {
+            writeData(next!.data!);
+          } else if (next?.file != null) {
+            streamData(next!.file!);
+          } else if (cmd.isCommandDone(response)) {
+            if (response.isFailedStatus) {
+              cmd.completer.completeError(SmtpException(this, response));
+            } else {
+              cmd.completer.complete(response);
+            }
+            //_log("Done with command ${_currentCommand.command}");
           }
-          //_log("Done with command ${_currentCommand.command}");
-          _currentCommand = null;
         }
       } catch (exception, stackTrace) {
         log('Error proceeding to nextCommand: $exception');

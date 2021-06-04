@@ -23,6 +23,8 @@ class StackList<T> {
 
   bool get isEmpty => _elements.isEmpty;
 
+  int get length => _elements.length;
+
   @override
   String toString() {
     return _elements.toString();
