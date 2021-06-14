@@ -940,7 +940,7 @@ class ImapClient extends ClientBase {
     final cmd = Command('UNSELECT');
     final parser = NoResponseParser(_selectedMailbox);
     _selectedMailbox = null;
-    return sendCommand(cmd, parser);
+    return Future.wait([sendCommand(cmd, parser)]);
   }
 
   /// Searches messages by the given [searchCriteria] like `'UNSEEN'` or `'RECENT'` or `'FROM sender@domain.com'`.
