@@ -1,22 +1,23 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:enough_mail/enough_mail.dart';
+import 'package:enough_mail/imap/mailbox.dart';
 import 'package:enough_mail/imap/message_sequence.dart';
 import 'package:enough_mail/imap/metadata.dart';
+import 'package:enough_mail/imap/response.dart';
+import 'package:enough_mail/mime_message.dart';
+import 'package:enough_mail/src/imap/all_parsers.dart';
+import 'package:enough_mail/src/imap/capability_parser.dart';
+import 'package:enough_mail/src/imap/command.dart';
+import 'package:enough_mail/src/imap/imap_response.dart';
+import 'package:enough_mail/src/imap/imap_response_reader.dart';
 import 'package:enough_mail/src/imap/quota_parser.dart';
 import 'package:enough_mail/src/imap/response_parser.dart';
 import 'package:enough_mail/src/util/client_base.dart';
 import 'package:enough_serialization/enough_serialization.dart';
 import 'package:event_bus/event_bus.dart';
-import 'package:enough_mail/imap/mailbox.dart';
-import 'package:enough_mail/mime_message.dart';
-import 'package:enough_mail/imap/response.dart';
-import 'package:enough_mail/src/imap/capability_parser.dart';
-import 'package:enough_mail/src/imap/command.dart';
-import 'package:enough_mail/src/imap/all_parsers.dart';
-import 'package:enough_mail/src/imap/imap_response.dart';
-import 'package:enough_mail/src/imap/imap_response_reader.dart';
 
 import 'imap_exception.dart';
 import 'imap_search.dart';
@@ -1323,7 +1324,7 @@ class ImapClient extends ClientBase {
   /// Removes the specified mailbox
   ///
   /// [box] the mailbox to be deleted
-  Future<Mailbox> deleteMailbox(Mailbox box) {
+  Future<bool?> deleteMailbox(Mailbox box) {
     return _sendMailboxCommand('DELETE', box);
   }
 
@@ -1355,21 +1356,21 @@ class ImapClient extends ClientBase {
   ///
   /// The mailbox is listed in future LSUB commands, compare [listSubscribedMailboxes].
   /// [box] the mailbox that is subscribed
-  Future<Mailbox> subscribeMailbox(Mailbox box) {
+  Future<bool?> subscribeMailbox(Mailbox box) {
     return _sendMailboxCommand('SUBSCRIBE', box);
   }
 
   /// Unsubscribes the specified mailbox.
   ///
   /// [box] the mailbox that is unsubscribed
-  Future<Mailbox> unsubscribeMailbox(Mailbox box) {
+  Future<bool?> unsubscribeMailbox(Mailbox box) {
     return _sendMailboxCommand('UNSUBSCRIBE', box);
   }
 
-  Future<Mailbox> _sendMailboxCommand(String command, Mailbox box) {
+  Future<bool?> _sendMailboxCommand(String command, Mailbox box) {
     final path = _encodeMailboxPath(box.path);
     final cmd = Command('$command $path');
-    return sendCommand<Mailbox>(cmd, NoopParser(this, box));
+    return sendCommand<bool>(cmd, NoResponseParser(true));
   }
 
   /// Switches to IDLE mode.

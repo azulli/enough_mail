@@ -286,24 +286,30 @@ class PartBuilder {
   /// [file] The file that should be added.
   /// [mediaType] The media type of the file.
   /// Specify the optional content [disposition] element, if it should not be populated automatically.
+  /// Specify the optional [cacheFile] if you want to use an external base64 file for the attachment.
   /// This will add an `AttachmentInfo` element to the `attachments` list of this builder.
   Future<PartBuilder> addFile(File file, MediaType mediaType,
-      {ContentDispositionHeader? disposition}) async {
+      {ContentDispositionHeader? disposition, File? cacheFile}) async {
     disposition ??=
         ContentDispositionHeader.from(ContentDisposition.attachment);
     disposition.filename ??= _getFileName(file);
     disposition.size ??= await file.length();
     disposition.modificationDate ??= await file.lastModified();
     final child = addPart(disposition: disposition);
-    final data = await file.readAsBytes();
+    if (cacheFile == null) {
+      final data = await file.readAsBytes();
+      child._part.mimeData =
+          TextMimeData(MailCodec.base64.encodeData(data), false);
+    } else {
+      await MailCodec.base64.encodeFileToFile(file, cacheFile);
+      child._part.mimeData = FileMimeData(cacheFile, false);
+    }
     child.transferEncoding = TransferEncoding.base64;
     final info = AttachmentInfo(file, mediaType, disposition.filename,
-        disposition.size, disposition.disposition, data, child);
+        disposition.size, disposition.disposition, null, child);
     attachments.add(info);
     child.setContentType(mediaType, name: disposition.filename);
-    child._part.mimeData =
-        TextMimeData(MailCodec.base64.encodeData(data), false);
-    ;
+
     return child;
   }
 

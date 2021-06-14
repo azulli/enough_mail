@@ -64,13 +64,13 @@ class _SmtpSendBdatCommand extends SmtpCommand {
         _currentStep = _BdatSequence.rcptTo;
         _recipientIndex++;
         return SmtpCommandData(
-            _getRecipientToCommand(recipientEmails[0]), null);
+            _getRecipientToCommand(recipientEmails[0]), null, null);
       case _BdatSequence.rcptTo:
         final index = _recipientIndex;
         if (index < recipientEmails.length) {
           _recipientIndex++;
           return SmtpCommandData(
-              _getRecipientToCommand(recipientEmails[index]), null);
+              _getRecipientToCommand(recipientEmails[index]), null, null);
         } else if (response.type == SmtpResponseType.success) {
           return _getCurrentChunk();
         } else {
@@ -89,7 +89,7 @@ class _SmtpSendBdatCommand extends SmtpCommand {
     if (_chunkIndex >= _chunks.length) {
       _currentStep = _BdatSequence.done;
     }
-    return SmtpCommandData(null, chunk);
+    return SmtpCommandData(null, chunk, null);
   }
 
   String _getRecipientToCommand(String email) {

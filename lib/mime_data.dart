@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart' show IterableExtension;
@@ -6,6 +7,7 @@ import 'package:enough_mail/mime_message.dart';
 import 'package:enough_mail/src/imap/parser_helper.dart';
 import 'package:enough_mail/src/util/byte_utils.dart';
 
+import 'codecs/smtp_codec.dart';
 import 'src/util/ascii_runes.dart';
 
 /// Abstracts textual or binary mime data
@@ -73,7 +75,9 @@ abstract class MimeData {
   /// Renders this mime data.
   ///
   /// Optionally set [readerHeader] to false in case the message header should be skipped.
-  void render(StringBuffer buffer, {bool renderHeader = true});
+  /// Set [isSmtp] to adapt the rendering process to output a STMP compatible result.
+  void render(StringSink buffer,
+      {bool renderHeader = true, bool isSmtp = false});
 
   Header? _getHeader(String lowerCaseName) {
     return headersList
@@ -166,11 +170,12 @@ class TextMimeData extends MimeData {
   }
 
   @override
-  void render(StringBuffer buffer, {bool renderHeader = true}) {
+  void render(StringSink buffer,
+      {bool renderHeader = true, bool isSmtp = false}) {
     if (!renderHeader && containsHeader) {
-      buffer.write(body);
+      buffer.write(isSmtp ? SmtpCodec.dotStuff(body) : body);
     } else {
-      buffer.write(text);
+      buffer.write(isSmtp ? SmtpCodec.dotStuff(text) : text);
     }
   }
 
@@ -349,18 +354,83 @@ class BinaryMimeData extends MimeData {
   }
 
   @override
-  void render(StringBuffer buffer, {bool renderHeader = true}) {
+  void render(StringSink buffer,
+      {bool renderHeader = true, bool isSmtp = false}) {
     if (!renderHeader && containsHeader) {
       final text = String.fromCharCodes(_bodyData);
-      buffer.write(text);
+      buffer.write(isSmtp ? SmtpCodec.dotStuff(text) : text);
     } else {
       final text = String.fromCharCodes(data);
-      buffer.write(text);
+      buffer.write(isSmtp ? SmtpCodec.dotStuff(text) : text);
     }
   }
 
   @override
   MimeData? decodeMessageData() {
     return BinaryMimeData(_bodyData, true);
+  }
+}
+
+class FileMimeData extends MimeData {
+  final File data;
+
+  /// Read block size
+  final blockSize = 65535;
+
+  /// Creates a new binary mime data with the specified [data] and the [containsHeader] info.
+  FileMimeData(this.data, bool containsHeader) : super(containsHeader) {
+    _size = data.existsSync() ? data.lengthSync() : 0;
+  }
+
+  @override
+  void _parseContent(ContentTypeHeader? contentTypeHeader) {
+    _bodySize = _size;
+    // Does nothing for file
+  }
+
+  @override
+  Uint8List decodeBinary(String? contentTransferEncoding) {
+    return MailCodec.decodeBinary(
+        data.readAsStringSync(), contentTransferEncoding);
+  }
+
+  @override
+  String decodeText(
+      ContentTypeHeader? contentTypeHeader, String? contentTransferEncoding) {
+    return MailCodec.decodeAsText(data.readAsBytesSync(),
+        contentTransferEncoding, contentTypeHeader?.charset);
+  }
+
+  @override
+  void render(StringSink buffer,
+      {bool renderHeader = true, bool isSmtp = false}) {
+    // FIXME How about the headers?
+    if (buffer is IOSink) {
+      var raf = data.openSync();
+      var pos = 0;
+      try {
+        var max = raf.lengthSync();
+        while (pos < max) {
+          var tmp = raf.readSync(blockSize);
+          buffer.add(tmp);
+          pos += tmp.length;
+          if (pos < max) {
+            raf.setPositionSync(pos);
+          }
+        }
+      } on FileSystemException catch (err) {
+        throw StateError('mime data cannot read from cache file: '
+            '${err.message}');
+      } finally {
+        raf.closeSync();
+      }
+    } else {
+      buffer.write(data.readAsStringSync());
+    }
+  }
+
+  @override
+  MimeData? decodeMessageData() {
+    throw UnimplementedError();
   }
 }

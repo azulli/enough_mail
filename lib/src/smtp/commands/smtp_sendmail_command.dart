@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:enough_mail/codecs/smtp_codec.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:enough_mail/mime_message.dart';
 import 'package:enough_mail/smtp/smtp_response.dart';
@@ -45,12 +48,17 @@ class _SmtpSendCommand extends SmtpCommand {
           return null;
         }
       case _SmtpSendCommandSequence.data:
+        if (this is SmtpSendMailFileCommand) {
+          return null;
+        }
+
         _currentStep = _SmtpSendCommandSequence.done;
 
         final data = getData();
 
         // \r\n.\r\n is the data stop sequence, so 'pad' this sequence in the message data
-        return data.replaceAll('\r\n.\r\n', '\r\n..\r\n') + '\r\n.';
+        //return data.replaceAll('\r\n.\r\n', '\r\n..\r\n') + '\r\n.';
+        return SmtpCodec.dotStuff(data) + '\r\n.';
       default:
         return null;
     }
@@ -104,4 +112,21 @@ class SmtpSendMailTextCommand extends _SmtpSendCommand {
   SmtpSendMailTextCommand(this.data, bool use8BitEncoding, MailAddress from,
       List<String> recipientEmails)
       : super(() => data, use8BitEncoding, from.email, recipientEmails);
+}
+
+class SmtpSendMailFileCommand extends _SmtpSendCommand {
+  final File data;
+
+  SmtpSendMailFileCommand(this.data, bool use8BitEncoding, MailAddress from,
+      List<String> recipientEmails)
+      : super(() => '', use8BitEncoding, from.email, recipientEmails);
+
+  @override
+  File? nextCommandFile(SmtpResponse response) {
+    if (_currentStep == _SmtpSendCommandSequence.data) {
+      _currentStep = _SmtpSendCommandSequence.done;
+      return data;
+    }
+    return null;
+  }
 }

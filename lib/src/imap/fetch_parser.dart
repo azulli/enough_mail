@@ -1,13 +1,13 @@
 import 'package:enough_mail/codecs/date_codec.dart';
 import 'package:enough_mail/codecs/mail_codec.dart';
 import 'package:enough_mail/imap/message_sequence.dart';
+import 'package:enough_mail/imap/response.dart';
 import 'package:enough_mail/mail_address.dart';
 import 'package:enough_mail/media_type.dart';
+import 'package:enough_mail/mime_data.dart';
 import 'package:enough_mail/mime_message.dart';
 import 'package:enough_mail/src/imap/parser_helper.dart';
 import 'package:enough_mail/src/imap/response_parser.dart';
-import 'package:enough_mail/imap/response.dart';
-import 'package:enough_mail/mime_data.dart';
 
 import 'imap_response.dart';
 
@@ -178,7 +178,8 @@ class FetchParser extends ResponseParser<FetchImapResult> {
       final startIndex = 'BODY['.length;
       final endIndex = bodyPartDefinition.length - 1;
       final fetchId = bodyPartDefinition.substring(startIndex, endIndex);
-      final part = MimePart();
+      final part =
+          MimePart(fetchId.endsWith('.HEADER') || fetchId.endsWith('.TEXT'));
       if (imapValue.value != null) {
         part.mimeData = TextMimeData(imapValue.value!, false);
       } else if (imapValue.data != null) {

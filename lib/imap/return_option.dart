@@ -37,6 +37,8 @@ class ReturnOption {
   /// Defines a partial range of the found results.
   ReturnOption.partial(String rangeSet) : this('PARTIAL', [rangeSet], true);
 
+  ReturnOption.save() : this('SAVE');
+
   void add(String parameter) {
     if (_parameters == null) {
       throw StateError('$name return option doesn\'t allow any parameter');

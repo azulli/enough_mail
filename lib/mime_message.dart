@@ -25,11 +25,18 @@ class MimePart {
   ///
   List<MimePart>? parts;
 
+  /// Signal if this part is partially retrieved (like only the headers of a message/rfc822 part).
+  bool _isPartial = false;
+  bool get isPartial => _isPartial;
+  bool get isNotPartial => !_isPartial;
+
   bool _isParsed = false;
   String? _decodedText;
   DateTime? _decodedDate;
   ContentTypeHeader? _contentTypeHeader;
   ContentDispositionHeader? _contentDispositionHeader;
+
+  MimePart([bool? isPartial]) : _isPartial = isPartial ?? false;
 
   /// Simplified way to retrieve the media type
   /// When no `content-type` header is defined, the media type `text/plain` is returned
@@ -171,11 +178,14 @@ class MimePart {
     complete ??= true;
     final header = getHeaderContentDisposition();
     final isMessage = getHeaderContentType()?.mediaType.isMessage ?? false;
-    if ((!reverse && header?.disposition == disposition) ||
+    var anyDisposition = disposition == ContentDisposition.any;
+    if (anyDisposition ||
+        (!reverse && header?.disposition == disposition) ||
         (reverse && header?.disposition != disposition)) {
       final info = ContentInfo(fetchId ?? '')
         ..contentDisposition = header
         ..contentType = getHeaderContentType()
+        ..encoding = getHeaderValue('content-transfer-encoding')
         ..cid = _getLowerCaseHeaderValue('content-id');
       result.add(info);
     }
@@ -382,16 +392,17 @@ class MimePart {
   /// Renders this mime part with all children parts into the specified [buffer].
   ///
   /// You can set [renderHeader] to `false` when the message headers should not be rendered.
-  void render(StringBuffer buffer, {bool renderHeader = true}) {
+  void render(StringSink buffer,
+      {bool renderHeader = true, bool isSmtp = false}) {
     if (mimeData != null) {
       if (!mimeData!.containsHeader && renderHeader) {
-        _renderHeaders(buffer);
+        _renderHeaders(buffer, isSmtp: isSmtp);
         buffer.write('\r\n');
       }
-      mimeData!.render(buffer);
+      mimeData!.render(buffer, isSmtp: isSmtp);
     } else {
       if (renderHeader) {
-        _renderHeaders(buffer);
+        _renderHeaders(buffer, isSmtp: isSmtp);
         buffer.write('\r\n');
       }
       if (parts?.isNotEmpty ?? false) {
@@ -404,7 +415,7 @@ class MimePart {
           buffer.write('--');
           buffer.write(multiPartBoundary);
           buffer.write('\r\n');
-          part.render(buffer);
+          part.render(buffer, isSmtp: isSmtp);
           buffer.write('\r\n');
         }
         buffer.write('--');
@@ -415,9 +426,12 @@ class MimePart {
     }
   }
 
-  void _renderHeaders(StringBuffer buffer) {
+  void _renderHeaders(StringSink buffer, {bool isSmtp = false}) {
     if (headers != null) {
       for (final header in headers!) {
+        if (isSmtp && header.lowerCaseName == 'bcc') {
+          continue;
+        }
         header.render(buffer);
       }
     }
@@ -589,10 +603,24 @@ class MimeMessage extends MimePart {
   ///
   /// Optionally exclude the rendering of the headers by setting [renderHeader] to `false`
   /// Internally calls [render(StringBuffer)] to render all mime parts.
-  String renderMessage({bool renderHeader = true}) {
-    final buffer = StringBuffer();
-    render(buffer, renderHeader: renderHeader);
+  String renderMessage({bool renderHeader = true, bool isSmtp = false}) {
+    var buffer = StringBuffer();
+    render(buffer, renderHeader: renderHeader, isSmtp: isSmtp);
     return buffer.toString();
+  }
+
+  /// Renders the complete message into a StringSink.
+  ///
+  /// Optionally exclude the rendering of the headers by setting [renderHeader] to `false`
+  /// Internally calls [render(StringBuffer)] to render all mime parts.
+  bool renderMessageToBuffer(StringSink? buffer,
+      {bool renderHeader = true, bool isSmtp = false}) {
+    if (buffer == null) {
+      // StateError for missing buffer?
+      return false;
+    }
+    render(buffer, renderHeader: renderHeader, isSmtp: isSmtp);
+    return true;
   }
 
   /// Creates a new message based on the specified rendered text form.
@@ -758,6 +786,9 @@ class MimeMessage extends MimePart {
       if (part != null) {
         return part;
       }
+    }
+    if (!mediaType.isMultipart && fetchId == '1') {
+      return this;
     }
     final idParts = fetchId.split('.').map<int>((part) => int.parse(part));
     MimePart parent = this;
@@ -1036,7 +1067,7 @@ class Header {
     buffer.write(value);
   }
 
-  void render(StringBuffer buffer) {
+  void render(StringSink buffer) {
     var length =
         name.length + ': '.length + (value == null ? 0 : value!.length);
     buffer.write(name);
@@ -1130,6 +1161,9 @@ class BodyPart {
 
   BodyPart? _parent;
 
+  /// Gives access to the parent [BodyPart]
+  BodyPart? get parent => _parent;
+
   BodyPart addPart([BodyPart? childPart]) {
     childPart ??= BodyPart();
     parts ??= <BodyPart>[];
@@ -1209,8 +1243,10 @@ class BodyPart {
     withCleanParts ??= true;
     complete ??= true;
     final isMessage = contentType?.mediaType.isMessage ?? false;
+    var anyDisposition = disposition == ContentDisposition.any;
     if (fetchId != null) {
-      if ((!reverse && contentDisposition?.disposition == disposition) ||
+      if (anyDisposition ||
+          (!reverse && contentDisposition?.disposition == disposition) ||
           (reverse &&
               contentDisposition?.disposition != disposition &&
               contentType?.mediaType.top != MediaToptype.multipart)) {
@@ -1479,7 +1515,7 @@ class ContentTypeHeader extends ParameterizedHeader {
 
 /// Specifies the content disposition of a mime part.
 /// Compare https://tools.ietf.org/html/rfc2183 for details.
-enum ContentDisposition { inline, attachment, other }
+enum ContentDisposition { any, inline, attachment, other }
 
 /// Specifies the content disposition header of a mime part.
 /// Compare https://tools.ietf.org/html/rfc2183 for details.
@@ -1620,6 +1656,7 @@ class ContentInfo {
   ContentDispositionHeader? contentDisposition;
   ContentTypeHeader? contentType;
   final String fetchId;
+  String? encoding;
   String? cid;
   String? _decodedFileName;
   String? get fileName {
